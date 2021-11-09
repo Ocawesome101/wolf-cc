@@ -7,17 +7,27 @@ local textures = {}
 local world = {}
 
 local function loadWorld()
+  local n, cn = 0, 0
   for line in io.lines("/raycast/world.txt") do
-    world[#world+1] = {}
+    world[n] = {}
     for c in line:gmatch(".") do
-      world[#world][#world[#world]+1] = tonumber("0x"..c)
+      world[n][cn] = tonumber("0x"..c) or 0
+      cn = cn + 1
     end
+    n = n + 1
+    cn = 0
+  end
+end
+
+local function loadTexture(id, file)
+  textures[id] = {}
+  for line in io.lines("/raycast/"..file) do
   end
 end
 
 loadWorld()
 
-local posX, posY = 22, 14
+local posX, posY = 20, 15
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
@@ -28,10 +38,12 @@ term.setGraphicsMode(2)
 local pressed = {}
 
 local lastTimerID
+
 while true do
   local moveSpeed, rotSpeed
 
   local drawBuf = {}
+  for i=0, h, 1 do drawBuf[i] = "" end
   for x = 0, w-1, 1 do
     local mapX = math.floor(posX + 0.5)
     local mapY = math.floor(posY + 0.5)
@@ -77,7 +89,7 @@ while true do
         mapY = mapY + stepY
         side = 1
       end
-      if world[mapY][mapX] ~= 0xf then
+      if world[mapY][mapX] ~= 0x0 then
         hit = world[mapY][mapX]
       end
     end
@@ -96,15 +108,21 @@ while true do
       if color > 0xf then color = 0 end
     end
 
-    term.drawPixels(x, 0, 0xf, 1, h)
-    term.drawPixels(x, drawStart, color, 1, math.max(0, drawEnd - drawStart))
-
-    oldTime = time
-    time = os.epoch("utc")
-    local frametime = (time - oldTime) / 1000
-    moveSpeed = frametime * 140
-    rotSpeed = frametime * 100
+    --term.drawPixels(x, 0, 0xf, 1, h)
+    --term.drawPixels(x, drawStart, color, 1, math.max(0, drawEnd - drawStart))
+    for i=0, h, 1 do
+      drawBuf[i] = drawBuf[i] ..
+        (i >= drawStart and i <= drawEnd and string.char(color) or "\x0F")
+    end
   end
+
+  term.drawPixels(0, 0, drawBuf)
+ 
+  oldTime = time
+  time = os.epoch("utc")
+  local frametime = (time - oldTime) / 1000
+  moveSpeed = frametime * 7
+  rotSpeed = frametime * 3
   if not lastTimerID then
     lastTimerID = os.startTimer(0)
   end
@@ -119,12 +137,12 @@ while true do
   if pressed[keys.up] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
-    if world[math.floor(posY)][math.floor(nposX)] == 0xF then
+    if world[math.floor(posY+0.5)][math.floor(nposX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   elseif pressed[keys.down] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
-    if world[math.floor(nposY)][math.floor(posX)] == 0xF then
+    if world[math.floor(nposY+0.5)][math.floor(posX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   end if pressed[keys.right] then
     local oldDirX = dirX
