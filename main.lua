@@ -1,9 +1,6 @@
 -- raycaster --
 
-local buffer = require("buffer")
-
 local w, h = term.getSize(2)
-local buf = buffer.new(w, h)
 
 local textures = {}
 
@@ -20,7 +17,7 @@ end
 
 loadWorld()
 
-local posX, posY = 22, 12
+local posX, posY = 22, 14
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
@@ -30,11 +27,11 @@ term.setGraphicsMode(2)
 
 local pressed = {}
 
+local lastTimerID
 while true do
-  buf.clear()
-
   local moveSpeed, rotSpeed
 
+  local drawBuf = {}
   for x = 0, w-1, 1 do
     local mapX = math.floor(posX + 0.5)
     local mapY = math.floor(posY + 0.5)
@@ -85,10 +82,10 @@ while true do
       end
     end
 
-    if side == 0 then perpWallDist = (sideDistX - deltaDistY)
-    else perpWallDist = sideDistY - deltaDistX end
+    if side == 0 then perpWallDist = (sideDistX - deltaDistX)
+    else perpWallDist = sideDistY - deltaDistY end
 
-    local lineHeight = h / perpWallDist
+    local lineHeight = math.floor(h / perpWallDist)
 
     local drawStart = math.max(0, -lineHeight / 2 + h / 2)
     local drawEnd = math.min(h, lineHeight / 2 + h / 2)
@@ -99,18 +96,22 @@ while true do
       if color > 0xf then color = 0 end
     end
 
-    buf.drawPixels(x, drawStart, color, 1, math.max(0, drawEnd - drawStart))
+    term.drawPixels(x, 0, 0xf, 1, h)
+    term.drawPixels(x, drawStart, color, 1, math.max(0, drawEnd - drawStart))
 
     oldTime = time
     time = os.epoch("utc")
     local frametime = (time - oldTime) / 1000
-    moveSpeed = frametime * 5
-    rotSpeed = frametime * 3
+    moveSpeed = frametime * 140
+    rotSpeed = frametime * 100
   end
-  buf.draw(0,0)
-  os.startTimer(0.01)
-  local sig, code = os.pullEvent()
-  if sig == "key" then
+  if not lastTimerID then
+    lastTimerID = os.startTimer(0)
+  end
+  local sig, code, rep = os.pullEvent()
+  if sig == "timer" and code == lastTimerID then
+    lastTimerID = nil
+  elseif sig == "key" and not rep then
     pressed[code] = true
   elseif sig == "key_up" then
     pressed[code] = false
@@ -118,19 +119,21 @@ while true do
   if pressed[keys.up] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
-    if world[math.floor(posY)][math.floor(nposX)] == 0xF then posX, posY = nposX, nposY end
+    if world[math.floor(posY)][math.floor(nposX)] == 0xF then
+      posX, posY = nposX, nposY end
   elseif pressed[keys.down] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
-    if world[math.floor(nposY)][math.floor(posX)] == 0xF then posX, posY = nposX, nposY end
-  elseif pressed[keys.right] then
+    if world[math.floor(nposY)][math.floor(posX)] == 0xF then
+      posX, posY = nposX, nposY end
+  end if pressed[keys.right] then
     local oldDirX = dirX
     dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
     dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
     local oldPlaneX = planeX
     planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
     planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
-  elseif pressed[keys.left] then
+  end if pressed[keys.left] then
     local oldDirX = dirX
     dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
     dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
