@@ -6,6 +6,8 @@ local textures = {}
 local texWidth, texHeight = 64, 64
 
 local world = {}
+local floorColor = 0x0
+local ceilColor = 0x1
 
 local function loadWorld()
   local n, cn = 0, 0
@@ -26,7 +28,7 @@ end
 -- 1 byte: color ID
 -- 3 bytes: RGB value
 -- then raw texture data
-local lastSetPal = 15
+local lastSetPal = 1
 local function loadTexture(id, file)
   textures[id] = {}
   local tex = textures[id]
@@ -35,16 +37,24 @@ local function loadTexture(id, file)
   local palConv = {}
   local palLen = handle:read(1):byte()
   local r = 0
+  local eq = 0
   while r < palLen do
     r = r + 4
     local colID = handle:read(1):byte()
     local rgb = string.unpack("<I3", handle:read(3))
-    for i=0, lastSetPal do
+    print("checking " .. lastSetPal .. " colors")
+    for i=0, lastSetPal, 1 do
       local mr, mg, mb = term.getPaletteColor(i)
       mr, mg, mb = mr * 255, mg * 255, mb * 255
-      local colcomp = mr*0x1000 + mb*0x100 + mg
-      if rgb == colcomp then
+      local r, g, b = bit32.band(rgb, 0xff0000), bit32.band(rgb, 0x00ff00),
+        bit32.band(rgb, 0x0000ff)
+      if math.floor(r/16) == math.floor(mr/16) and
+         math.floor(b/16) == math.floor(mb/16) and
+         math.floor(g/16) == math.floor(mg/16) then
         palConv[colID] = i
+        print(string.format("found match (%d,%d,%d) and (%d,%d,%d)",
+          r, g, b, mr, mg, mb))
+        eq = eq + 1
         break
       end
     end
@@ -57,6 +67,7 @@ local function loadTexture(id, file)
       palConv[colID] = lastSetPal
     end
   end
+  print("found " .. eq .. " equal colors")
   --[[
   repeat
     local byte, rlen = (handle:read(1) or "0"):byte(),
@@ -75,13 +86,12 @@ local function loadTexture(id, file)
       n = n + 1
     end
   until not byte
-  print(n)
   handle:close()
 end
 
 loadWorld()
 
-local posX, posY = 20, 15
+local posX, posY = 2, 2
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
@@ -89,12 +99,16 @@ local time, oldTime = 0, 0
 
 term.setGraphicsMode(2)
 
-for i=16, 255, 1 do
-  term.setPaletteColor(i,bit32.lshift(i,16)+bit32.lshift(i,8)+i)
-end
+term.setPaletteColor(floorColor, 0x707070)
+term.setPaletteColor(ceilColor, 0x383838)
 
-loadTexture(1, "bricks.tex")
-
+loadTexture(1, "bluestone.tex")
+loadTexture(2, "wood.tex")
+loadTexture(3, "eagle.tex")
+loadTexture(4, "purplestone.tex")
+loadTexture(5, "redbrick.tex")
+loadTexture(6, "greystone.tex")
+loadTexture(7, "colorstone.tex")
 
 local pressed = {}
 
@@ -152,7 +166,7 @@ local function castRay(x, invertX, invertY, drawBuf)
       side = 1
     end
     if not (world[mapY] and world[mapY][mapX]) then
-      hit = 0xf
+      hit = 0x0
     elseif world[mapY][mapX] ~= 0x0 then
       hit = world[mapY][mapX]
     end
@@ -177,7 +191,9 @@ local function castRay(x, invertX, invertY, drawBuf)
     if #tex < texWidth*texHeight-2 then
       for i=0, h, 1 do
         drawBuf[i] = drawBuf[i] ..
-          (i >= drawStart and i <= drawEnd and string.char(color) or "\x0F")
+          (i >= drawStart and i <= drawEnd and string.char(color)
+       or (i < drawStart and "\x01")
+       or "\x00")
       end
     else
       local wallX
@@ -192,13 +208,15 @@ local function castRay(x, invertX, invertY, drawBuf)
       local step = texHeight / lineHeight
       local texPos = (drawStart - h / 2 + lineHeight / 2) * step
       for i=0, h, 1 do
-        local color = "\x0f"
+        local color = "\x00"
         if (i >= drawStart and i < drawEnd) then
           local texY = bit32.band(math.floor(texPos+0.5), (texHeight - 1))
           texPos = texPos + step
           local _color = tex[texHeight * texY + texX] or 255
           if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
           color = string.char(_color)
+        elseif i < drawStart then
+          color = "\x01"
         end
         drawBuf[i] = drawBuf[i] .. color
       end
@@ -231,7 +249,8 @@ while true do
   if not lastTimerID then
     lastTimerID = os.startTimer(0)
   end
-  local sig, code, rep = os.pullEvent()
+  local sig, code, rep = os.pullEventRaw()
+  if sig == "terminate" then break end
   if sig == "timer" and code == lastTimerID then
     lastTimerID = nil
   elseif sig == "key" and not rep then
@@ -242,15 +261,18 @@ while true do
   if pressed[keys.up] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
-    local dist = castRay(math.floor(w / 2))
-    if dist > 1 then
+    local dist = math.min(castRay(math.floor(w * 0.5)),
+      castRay(math.floor(w * 0.75)), castRay(math.floor(w * 0.25)))
+    if dist > 0.8 then
     --if world[math.floor(posY+0.5)][math.floor(nposX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   elseif pressed[keys.down] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
-    local dist = castRay(math.floor(w / 2), true, true)
-    if dist > 1 then
+    local dist = math.min(castRay(math.floor(w * 0.5), true, true),
+      castRay(math.floor(w * 0.75), true, true),
+      castRay(math.floor(w * 0.25), true, true))
+    if dist > 0.8 then
     --if world[math.floor(nposY+0.5)][math.floor(posX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   end if pressed[keys.right] then
