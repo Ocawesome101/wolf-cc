@@ -3,7 +3,7 @@
 local w, h = term.getSize(2)
 
 local textures = {}
-local texWidth, texHeight = 16, 16
+local texWidth, texHeight = 64, 64
 
 local world = {}
 
@@ -75,6 +75,7 @@ local function loadTexture(id, file)
       n = n + 1
     end
   until not byte
+  print(n)
   handle:close()
 end
 
@@ -99,64 +100,68 @@ local pressed = {}
 
 local lastTimerID
 
-while true do
-  local moveSpeed, rotSpeed
+local function castRay(x, invertX, invertY, drawBuf)
+  local mapX = math.floor(posX + 0.5)
+  local mapY = math.floor(posY + 0.5)
 
-  local drawBuf = {}
-  for i=0, h, 1 do drawBuf[i] = "" end
-  for x = 0, w-1, 1 do
-    local mapX = math.floor(posX + 0.5)
-    local mapY = math.floor(posY + 0.5)
-
-    local cameraX = 2 * x / w - 1
-    local rayDirX = dirX + planeX * cameraX
-    local rayDirY = dirY + planeY * cameraX
+  local cameraX = 2 * x / w - 1
+  local rayDirX = dirX + planeX * cameraX
+  local rayDirY = dirY + planeY * cameraX
+  if invertX then
+    rayDirX = -rayDirX
+  end
+  if invertY then
+    rayDirY = -rayDirY
+  end
     
-    local sideDistX, sideDistY
+  local sideDistX, sideDistY
 
-    local deltaDistX = (rayDirX == 0) and 1e30 or math.abs(1 / rayDirX)
-    local deltaDistY = (rayDirY == 0) and 1e30 or math.abs(1 / rayDirY)
-    local perpWallDist
+  local deltaDistX = (rayDirX == 0) and 1e30 or math.abs(1 / rayDirX)
+  local deltaDistY = (rayDirY == 0) and 1e30 or math.abs(1 / rayDirY)
+  local perpWallDist
 
-    local stepX, stepY
+  local stepX, stepY
 
-    local hit = false
-    local side
+  local hit = false
+  local side
 
-    if rayDirX < 0 then
-      stepX = -1
-      sideDistX = (posX - mapX) * deltaDistX
+  if rayDirX < 0 then
+    stepX = -1
+    sideDistX = (posX - mapX) * deltaDistX
+  else
+    stepX = 1
+    sideDistX = (mapX + 1 - posX) * deltaDistX
+  end
+
+  if rayDirY < 0 then
+    stepY = -1
+    sideDistY = (posY - mapY) * deltaDistY
+  else
+    stepY = 1
+    sideDistY = (mapY + 1 - posY) * deltaDistY
+  end
+
+  while not hit do
+    if sideDistX < sideDistY then
+      sideDistX = sideDistX + deltaDistX
+      mapX = mapX + stepX
+      side = 0
     else
-      stepX = 1
-      sideDistX = (mapX + 1 - posX) * deltaDistX
+      sideDistY = sideDistY + deltaDistY
+      mapY = mapY + stepY
+      side = 1
     end
-
-    if rayDirY < 0 then
-      stepY = -1
-      sideDistY = (posY - mapY) * deltaDistY
-    else
-      stepY = 1
-      sideDistY = (mapY + 1 - posY) * deltaDistY
+    if not (world[mapY] and world[mapY][mapX]) then
+      hit = 0xf
+    elseif world[mapY][mapX] ~= 0x0 then
+      hit = world[mapY][mapX]
     end
+  end
 
-    while not hit do
-      if sideDistX < sideDistY then
-        sideDistX = sideDistX + deltaDistX
-        mapX = mapX + stepX
-        side = 0
-      else
-        sideDistY = sideDistY + deltaDistY
-        mapY = mapY + stepY
-        side = 1
-      end
-      if world[mapY][mapX] ~= 0x0 then
-        hit = world[mapY][mapX]
-      end
-    end
+  if side == 0 then perpWallDist = (sideDistX - deltaDistX)
+  else perpWallDist = sideDistY - deltaDistY end
 
-    if side == 0 then perpWallDist = (sideDistX - deltaDistX)
-    else perpWallDist = sideDistY - deltaDistY end
-
+  if drawBuf then
     local lineHeight = math.floor(h / perpWallDist)
 
     local drawStart = math.max(0, -lineHeight / 2 + h / 2)
@@ -169,7 +174,7 @@ while true do
     end
 
     local tex = textures[hit] or {}
-    if #tex < 254 then
+    if #tex < texWidth*texHeight-2 then
       for i=0, h, 1 do
         drawBuf[i] = drawBuf[i] ..
           (i >= drawStart and i <= drawEnd and string.char(color) or "\x0F")
@@ -200,11 +205,25 @@ while true do
     end
   end
 
+  return perpWallDist
+end
+
+local ftavg = 0
+while true do
+  local moveSpeed, rotSpeed
+
+  local drawBuf = {}
+  for i=0, h, 1 do drawBuf[i] = "" end
+  for x = 0, w-1, 1 do
+    castRay(x, false, false, drawBuf)
+  end
   term.drawPixels(0, 0, drawBuf)
  
   oldTime = time
   time = os.epoch("utc")
   local frametime = (time - oldTime) / 1000
+  ftavg = (ftavg + frametime) / (ftavg == 0 and 1 or 2)
+  local fps = 1 / ftavg
   moveSpeed = frametime * 7
   rotSpeed = frametime * 3
 
@@ -223,12 +242,16 @@ while true do
   if pressed[keys.up] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
-    if world[math.floor(posY+0.5)][math.floor(nposX+0.5)] == 0 then
+    local dist = castRay(math.floor(w / 2))
+    if dist > 1 then
+    --if world[math.floor(posY+0.5)][math.floor(nposX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   elseif pressed[keys.down] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
-    if world[math.floor(nposY+0.5)][math.floor(posX+0.5)] == 0 then
+    local dist = castRay(math.floor(w / 2), true, true)
+    if dist > 1 then
+    --if world[math.floor(nposY+0.5)][math.floor(posX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   end if pressed[keys.right] then
     local oldDirX = dirX
@@ -247,3 +270,4 @@ while true do
   end
 end
 term.setGraphicsMode(0)
+print("Average FPS: " .. 1/ftavg)
