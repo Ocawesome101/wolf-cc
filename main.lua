@@ -3,12 +3,13 @@
 local w, h = term.getSize(2)
 
 local textures = {}
+local texWidth, texHeight = 16, 16
 
 local world = {}
 
 local function loadWorld()
   local n, cn = 0, 0
-  for line in io.lines("/raycast/world.txt") do
+  for line in io.lines(shell.dir().."/world.txt") do
     world[n] = {}
     for c in line:gmatch(".") do
       world[n][cn] = tonumber("0x"..c) or 0
@@ -19,10 +20,62 @@ local function loadWorld()
   end
 end
 
+-- textures use a custom format:
+-- 1 byte: length of palette section
+-- for each palette entry:
+-- 1 byte: color ID
+-- 3 bytes: RGB value
+-- then raw texture data
+local lastSetPal = 15
 local function loadTexture(id, file)
   textures[id] = {}
-  for line in io.lines("/raycast/"..file) do
+  local tex = textures[id]
+  local n = 0
+  local handle = assert(io.open(shell.dir().."/"..file))
+  local palConv = {}
+  local palLen = handle:read(1):byte()
+  local r = 0
+  while r < palLen do
+    r = r + 4
+    local colID = handle:read(1):byte()
+    local rgb = string.unpack("<I3", handle:read(3))
+    for i=0, lastSetPal do
+      local mr, mg, mb = term.getPaletteColor(i)
+      mr, mg, mb = mr * 255, mg * 255, mb * 255
+      local colcomp = mr*0x1000 + mb*0x100 + mg
+      if rgb == colcomp then
+        palConv[colID] = i
+        break
+      end
+    end
+    if not palConv[colID] then
+      lastSetPal = lastSetPal + 2
+      assert(lastSetPal < 256, "too many texture colors!")
+      term.setPaletteColor(lastSetPal - 1,
+        bit32.band(bit32.rshift(rgb, 1), 8355711))
+      term.setPaletteColor(lastSetPal, rgb)
+      palConv[colID] = lastSetPal
+    end
   end
+  --[[
+  repeat
+    local byte, rlen = (handle:read(1) or "0"):byte(),
+      (handle:read(1) or "0"):byte()
+    assert(byte == 0 or palConv[byte], "bad color " .. byte)
+    for i=1, rlen, 1 do
+      tex[n] = palConv[byte]
+      n = n + 1
+    end
+  until rlen == 0
+  --]]
+  repeat
+    local byte = handle:read(1)
+    if byte then
+      tex[n] = palConv[string.byte(byte)]
+      n = n + 1
+    end
+  until not byte
+  handle:close()
 end
 
 loadWorld()
@@ -34,6 +87,13 @@ local planeX, planeY = 0, 0.66
 local time, oldTime = 0, 0
 
 term.setGraphicsMode(2)
+
+for i=16, 255, 1 do
+  term.setPaletteColor(i,bit32.lshift(i,16)+bit32.lshift(i,8)+i)
+end
+
+loadTexture(1, "bricks.tex")
+
 
 local pressed = {}
 
@@ -108,11 +168,35 @@ while true do
       if color > 0xf then color = 0 end
     end
 
-    --term.drawPixels(x, 0, 0xf, 1, h)
-    --term.drawPixels(x, drawStart, color, 1, math.max(0, drawEnd - drawStart))
-    for i=0, h, 1 do
-      drawBuf[i] = drawBuf[i] ..
-        (i >= drawStart and i <= drawEnd and string.char(color) or "\x0F")
+    local tex = textures[hit] or {}
+    if #tex < 254 then
+      for i=0, h, 1 do
+        drawBuf[i] = drawBuf[i] ..
+          (i >= drawStart and i <= drawEnd and string.char(color) or "\x0F")
+      end
+    else
+      local wallX
+      if side == 0 then wallX = posY + perpWallDist * rayDirY
+      else wallX = posX + perpWallDist * rayDirX end
+      wallX = wallX - math.floor(wallX)
+      
+      local texX = math.floor(wallX * texWidth)
+      if side == 0 and rayDirX > 0 then texX = texWidth - texX - 1 end
+      if side == 1 and rayDirY < 0 then texX = texWidth - texX - 1 end
+
+      local step = texHeight / lineHeight
+      local texPos = (drawStart - h / 2 + lineHeight / 2) * step
+      for i=0, h, 1 do
+        local color = "\x0f"
+        if (i >= drawStart and i < drawEnd) then
+          local texY = bit32.band(math.floor(texPos+0.5), (texHeight - 1))
+          texPos = texPos + step
+          local _color = tex[texHeight * texY + texX] or 255
+          if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
+          color = string.char(_color)
+        end
+        drawBuf[i] = drawBuf[i] .. color
+      end
     end
   end
 
@@ -123,6 +207,8 @@ while true do
   local frametime = (time - oldTime) / 1000
   moveSpeed = frametime * 7
   rotSpeed = frametime * 3
+
+  -- input handling
   if not lastTimerID then
     lastTimerID = os.startTimer(0)
   end
