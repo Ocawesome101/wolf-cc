@@ -33,7 +33,7 @@ local function loadTexture(id, file)
   textures[id] = {}
   local tex = textures[id]
   local n = 0
-  local handle = assert(io.open(shell.dir().."/"..file))
+  local handle = assert(io.open(shell.dir().."/textures/"..file))
   local palConv = {}
   local palLen = handle:read(1):byte()
   local r = 0
