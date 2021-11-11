@@ -42,7 +42,6 @@ local function loadTexture(id, file)
     r = r + 4
     local colID = handle:read(1):byte()
     local rgb = string.unpack("<I3", handle:read(3))
-    print("checking " .. lastSetPal .. " colors")
     for i=0, lastSetPal, 1 do
       local mr, mg, mb = term.getPaletteColor(i)
       mr, mg, mb = mr * 255, mg * 255, mb * 255
@@ -52,8 +51,6 @@ local function loadTexture(id, file)
          math.floor(b/16) == math.floor(mb/16) and
          math.floor(g/16) == math.floor(mg/16) then
         palConv[colID] = i
-        print(string.format("found match (%d,%d,%d) and (%d,%d,%d)",
-          r, g, b, mr, mg, mb))
         eq = eq + 1
         break
       end
@@ -67,18 +64,6 @@ local function loadTexture(id, file)
       palConv[colID] = lastSetPal
     end
   end
-  print("found " .. eq .. " equal colors")
-  --[[
-  repeat
-    local byte, rlen = (handle:read(1) or "0"):byte(),
-      (handle:read(1) or "0"):byte()
-    assert(byte == 0 or palConv[byte], "bad color " .. byte)
-    for i=1, rlen, 1 do
-      tex[n] = palConv[byte]
-      n = n + 1
-    end
-  until rlen == 0
-  --]]
   repeat
     local byte = handle:read(1)
     if byte then
@@ -115,8 +100,8 @@ local pressed = {}
 local lastTimerID
 
 local function castRay(x, invertX, invertY, drawBuf)
-  local mapX = math.floor(posX + 0.5)
-  local mapY = math.floor(posY + 0.5)
+  local mapX = math.floor(posX)
+  local mapY = math.floor(posY)
 
   local cameraX = 2 * x / w - 1
   local rayDirX = dirX + planeX * cameraX
@@ -179,7 +164,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     local lineHeight = math.floor(h / perpWallDist)
 
     local drawStart = math.max(0, -lineHeight / 2 + h / 2)
-    local drawEnd = math.min(h, lineHeight / 2 + h / 2)
+    local drawEnd = math.min(h - 1, lineHeight / 2 + h / 2)
 
     local color = hit
     if side == 0 then
@@ -210,7 +195,7 @@ local function castRay(x, invertX, invertY, drawBuf)
       for i=0, h, 1 do
         local color = "\x00"
         if (i >= drawStart and i < drawEnd) then
-          local texY = bit32.band(math.floor(texPos+0.5), (texHeight - 1))
+          local texY = bit32.band(math.floor(texPos), (texHeight - 1))
           texPos = texPos + step
           local _color = tex[texHeight * texY + texX] or 255
           if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
@@ -264,7 +249,6 @@ while true do
     local dist = math.min(castRay(math.floor(w * 0.5)),
       castRay(math.floor(w * 0.75)), castRay(math.floor(w * 0.25)))
     if dist > 0.8 then
-    --if world[math.floor(posY+0.5)][math.floor(nposX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   elseif pressed[keys.down] then
     local nposX = posX - dirX * moveSpeed
@@ -273,7 +257,6 @@ while true do
       castRay(math.floor(w * 0.75), true, true),
       castRay(math.floor(w * 0.25), true, true))
     if dist > 0.8 then
-    --if world[math.floor(nposY+0.5)][math.floor(posX+0.5)] == 0 then
       posX, posY = nposX, nposY end
   end if pressed[keys.right] then
     local oldDirX = dirX
