@@ -2,10 +2,13 @@
 
 local w, h = term.getSize(2)
 
+local COLL_FAR_LEFT = 0.4
+local COLL_FAR_RIGHT = 0.6
+
 local textures = {}
 local texWidth, texHeight = 64, 64
 
-local world = {}
+local world, doors = {}, {}
 local floorColor = 0x1
 local ceilColor = 0x2
 
@@ -74,8 +77,9 @@ local function loadTexture(id, file)
 end
 
 loadWorld("world.txt", world)
+loadWorld("doors.txt", doors)
 
-local posX, posY = 20, 20
+local posX, posY = 21, 11
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
@@ -87,14 +91,14 @@ term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
 
-loadTexture(1, "bluestone.tex")
-loadTexture(2, "wood.tex")
-loadTexture(3, "eagle.tex")
-loadTexture(4, "purplestone.tex")
-loadTexture(5, "redbrick.tex")
-loadTexture(6, "greystone.tex")
-loadTexture(7, "colorstone.tex")
-loadTexture(8, "mossy.tex")
+loadTexture(1, "eagle.tex")
+loadTexture(2, "redbrick.tex")
+loadTexture(3, "purplestone.tex")
+loadTexture(4, "greystone.tex")
+loadTexture(5, "bluestone.tex")
+loadTexture(6, "mossy.tex")
+loadTexture(7, "wood.tex")
+loadTexture(8, "colorstone.tex")
 loadTexture(9, "barrel.tex")
 loadTexture(10, "greenlight.tex")
 loadTexture(11, "pillar.tex")
@@ -312,8 +316,8 @@ while true do
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
     local dist = math.min((castRay(math.floor(w * 0.5))),
-      (castRay(math.floor(w * 0.75))),
-      (castRay(math.floor(w * 0.25))))
+      (castRay(math.floor(w * COLL_FAR_LEFT))),
+      (castRay(math.floor(w * COLL_FAR_RIGHT))))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
@@ -321,8 +325,8 @@ while true do
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
     local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
-      (castRay(math.floor(w * 0.75), true, true)),
-      (castRay(math.floor(w * 0.25), true, true)))
+      (castRay(math.floor(w * COLL_FAR_LEFT), true, true)),
+      (castRay(math.floor(w * COLL_FAR_RIGHT), true, true)))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
@@ -344,7 +348,7 @@ while true do
   end
   if pressed[keys.space] then
     local dist, tile, mx, my = castRay(math.floor(w * 0.5))
-    if dist < 2 and tile == 12 then
+    if dist < 2 and doors[my][mx] == 1 then
       world[my][mx] = 0
     end
   end
