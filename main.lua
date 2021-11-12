@@ -6,8 +6,8 @@ local textures = {}
 local texWidth, texHeight = 64, 64
 
 local world = {}
-local floorColor = 0x0
-local ceilColor = 0x1
+local floorColor = 0x1
+local ceilColor = 0x2
 
 local function loadWorld()
   local n, cn = 0, 0
@@ -28,7 +28,7 @@ end
 -- 1 byte: color ID
 -- 3 bytes: RGB value
 -- then raw texture data
-local lastSetPal = 1
+local lastSetPal = 2
 local function loadTexture(id, file)
   textures[id] = {}
   local tex = textures[id]
@@ -51,15 +51,14 @@ local function loadTexture(id, file)
          math.floor(b/16) == math.floor(mb/16) and
          math.floor(g/16) == math.floor(mg/16) then
         palConv[colID] = i
-        eq = eq + 1
         break
       end
     end
     if not palConv[colID] then
-      lastSetPal = lastSetPal + 2
+      lastSetPal = lastSetPal + 1--2
       assert(lastSetPal < 256, "too many texture colors!")
-      term.setPaletteColor(lastSetPal - 1,
-        bit32.band(bit32.rshift(rgb, 1), 8355711))
+      --term.setPaletteColor(lastSetPal - 1,
+      --  bit32.band(bit32.rshift(rgb, 1), 8355711))
       term.setPaletteColor(lastSetPal, rgb)
       palConv[colID] = lastSetPal
     end
@@ -76,7 +75,7 @@ end
 
 loadWorld()
 
-local posX, posY = 2, 2
+local posX, posY = 20, 20
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
@@ -84,6 +83,7 @@ local time, oldTime = 0, 0
 
 term.setGraphicsMode(2)
 
+term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
 
@@ -94,6 +94,15 @@ loadTexture(4, "purplestone.tex")
 loadTexture(5, "redbrick.tex")
 loadTexture(6, "greystone.tex")
 loadTexture(7, "colorstone.tex")
+loadTexture(8, "mossy.tex")
+loadTexture(9, "barrel.tex")
+loadTexture(10, "greenlight.tex")
+loadTexture(11, "pillar.tex")
+
+local sprites = {
+  {18, 18, 9},
+  {17, 17, 11}
+}
 
 local pressed = {}
 
@@ -177,8 +186,8 @@ local function castRay(x, invertX, invertY, drawBuf)
       for i=0, h, 1 do
         drawBuf[i] = drawBuf[i] ..
           (i >= drawStart and i <= drawEnd and string.char(color)
-       or (i < drawStart and "\x01")
-       or "\x00")
+       or (i < drawStart and "\x02")
+       or "\x01")
       end
     else
       local wallX
@@ -193,15 +202,15 @@ local function castRay(x, invertX, invertY, drawBuf)
       local step = texHeight / lineHeight
       local texPos = (drawStart - h / 2 + lineHeight / 2) * step
       for i=0, h, 1 do
-        local color = "\x00"
+        local color = "\x01"
         if (i >= drawStart and i < drawEnd) then
           local texY = bit32.band(math.floor(texPos), (texHeight - 1))
           texPos = texPos + step
           local _color = tex[texHeight * texY + texX] or 255
-          if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
+          --if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
           color = string.char(_color)
         elseif i < drawStart then
-          color = "\x01"
+          color = "\x02"
         end
         drawBuf[i] = drawBuf[i] .. color
       end
@@ -216,9 +225,63 @@ while true do
   local moveSpeed, rotSpeed
 
   local drawBuf = {}
+  local zBuf = {}
   for i=0, h, 1 do drawBuf[i] = "" end
   for x = 0, w-1, 1 do
-    castRay(x, false, false, drawBuf)
+    zBuf[x] = castRay(x, false, false, drawBuf)
+  end
+
+  local spriteOrder = {}
+  local spriteDistance = {}
+
+  for i=1, #sprites, 1 do
+    local s = sprites[i]
+    spriteOrder[i] = i
+    spriteDistance[i] = ((posX - s[1]) * (posX - s[1])
+      + (posY - s[2]) * (posY - s[2]))
+  end
+  table.sort(spriteOrder, function(a,b)
+    return spriteDistance[a] > spriteDistance[b]
+  end)
+
+  for i=1, #spriteOrder, 1 do
+    local s = sprites[spriteOrder[i]]
+    local spriteX = s[1] - posX
+    local spriteY = s[2] - posY
+
+    local invDet = 1 / (planeX * dirY - dirX * planeY)
+
+    local transformX = invDet * (dirY * spriteX - dirX * spriteY)
+    local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+
+    local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
+
+    local spriteHeight = math.abs(math.floor(h / transformY))
+
+    local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
+    local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
+
+    local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
+    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+    local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
+
+    for stripe = math.floor(drawStartX), drawEndX, 1 do
+      local texX = math.floor((stripe - (-spriteWidth / 2 + spriteScreenX)) *
+        texWidth / spriteWidth) % 64
+
+      if transformY > 0 and stripe > 0 and stripe < w
+          and transformY < zBuf[stripe] then
+        for y = math.floor(drawStartY), drawEndY, 1 do
+          local d = y - h / 2 + spriteHeight / 2
+          local texY = math.floor(((d * texHeight) / spriteHeight) % 64)
+          local color = textures[s[3]][texWidth * texY + texX]
+          if color ~= 0 then
+            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
+              string.char(color) .. drawBuf[y]:sub(stripe+2)
+          end
+        end
+      end
+    end
   end
   term.drawPixels(0, 0, drawBuf)
  
@@ -243,14 +306,15 @@ while true do
   elseif sig == "key_up" then
     pressed[code] = false
   end
-  if pressed[keys.up] then
+  if pressed[keys.up] or pressed[keys.w] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
     local dist = math.min(castRay(math.floor(w * 0.5)),
       castRay(math.floor(w * 0.75)), castRay(math.floor(w * 0.25)))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
-  elseif pressed[keys.down] then
+  end
+  if pressed[keys.down] or pressed[keys.s] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
     local dist = math.min(castRay(math.floor(w * 0.5), true, true),
@@ -258,14 +322,16 @@ while true do
       castRay(math.floor(w * 0.25), true, true))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
-  end if pressed[keys.right] then
+  end
+  if pressed[keys.right] then
     local oldDirX = dirX
     dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
     dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
     local oldPlaneX = planeX
     planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
     planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
-  end if pressed[keys.left] then
+  end
+  if pressed[keys.left] then
     local oldDirX = dirX
     dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
     dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
@@ -274,5 +340,6 @@ while true do
     planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
   end
 end
+
 term.setGraphicsMode(0)
 print("Average FPS: " .. 1/ftavg)
