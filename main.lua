@@ -110,15 +110,6 @@ local pressed = {}
 
 local lastTimerID
 
-local function intersects(x1, y1, x2, y2, x3, y3, x4, y4)
-  local A1, B1 = y2 - y1, x1 - x2
-  local C1 = A1 * x1 + B1 * y1
-  local A2, B2 = y4 - y3, x3 - x4
-  local C2 = A2 * x3 + B2 * y3
-  local denominator = A1 * B2 - A2 * B1
-  return (B2 * C1 - B1 * C2) / denominator, (A2 * C2 - A2 * C1) / denominator
-end
-
 local function castRay(x, invertX, invertY, drawBuf)
   local mapX = math.floor(posX)
   local mapY = math.floor(posY)
@@ -160,7 +151,6 @@ local function castRay(x, invertX, invertY, drawBuf)
     sideDistY = (mapY + 1 - posY) * deltaDistY
   end
 
-  --local ix, iy
   while not hit do
     if sideDistX < sideDistY then
       sideDistX = sideDistX + deltaDistX
@@ -174,29 +164,12 @@ local function castRay(x, invertX, invertY, drawBuf)
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
     elseif world[mapY][mapX] ~= 0x0 then
-      --[=[
-      if thin[world[mapY][mapX]] and side == thin[world[mapY][mapX]] then
-        if side == 1 then
-          local Ix, Iy = intersects(mapX, mapY+0.5, mapX+1, mapY + 0.5,
-            posX, posY, posX + rayDirX, posY + rayDirY)
-          if Ix >= mapX and Ix <= mapX + 1 and Iy >= mapY and Iy <= mapY+1 then
-            hit = world[mapY][mapX]
-            ix, iy = Ix, Iy
-          end
-          print(ix, iy)
-        else
-        end
-      elseif not thin[world[mapY][mapX]] then--]=]
-        hit = world[mapY][mapX]
-      --end
+      hit = world[mapY][mapX]
     end
   end
 
   if side == 0 then perpWallDist = sideDistX - deltaDistX
   else perpWallDist = sideDistY - deltaDistY end
-  --if ix and iy then
-  --  perpWallDist = ((ix - posX + iy - posY) / 2) / ((rayDirX + rayDirY) / 2)
-  --end
 
   if drawBuf then
     local lineHeight = math.floor(h / perpWallDist)
@@ -236,7 +209,6 @@ local function castRay(x, invertX, invertY, drawBuf)
           local texY = bit32.band(math.floor(texPos), (texHeight - 1))
           texPos = texPos + step
           local _color = tex[texHeight * texY + texX] or 255
-          --if side == 1 then _color = math.max(0,math.min(255,_color - 1)) end
           color = string.char(_color)
         elseif i < drawStart then
           color = "\x02"
@@ -246,7 +218,6 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  print("COLLIDE WITH " .. hit)
   return perpWallDist, hit, mapX, mapY
 end
 
@@ -340,18 +311,18 @@ while true do
   if pressed[keys.up] or pressed[keys.w] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
-    local dist = math.min(castRay(math.floor(w * 0.5)),
-      castRay(math.floor(w * 0.75)),
-      castRay(math.floor(w * 0.25)))
+    local dist = math.min((castRay(math.floor(w * 0.5))),
+      (castRay(math.floor(w * 0.75))),
+      (castRay(math.floor(w * 0.25))))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
   if pressed[keys.down] or pressed[keys.s] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
-    local dist = math.min(castRay(math.floor(w * 0.5), true, true),
-      castRay(math.floor(w * 0.75), true, true),
-      castRay(math.floor(w * 0.25), true, true))
+    local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
+      (castRay(math.floor(w * 0.75), true, true)),
+      (castRay(math.floor(w * 0.25), true, true)))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
