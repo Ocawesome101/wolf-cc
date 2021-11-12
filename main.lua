@@ -5,7 +5,7 @@ local w, h = term.getSize(2)
 local textures = {}
 local texWidth, texHeight = 64, 64
 
-local world, thin = {}, {[12] = 1}
+local world = {}
 local floorColor = 0x1
 local ceilColor = 0x2
 
@@ -160,7 +160,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     sideDistY = (mapY + 1 - posY) * deltaDistY
   end
 
-  local ix, iy
+  --local ix, iy
   while not hit do
     if sideDistX < sideDistY then
       sideDistX = sideDistX + deltaDistX
@@ -174,6 +174,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
     elseif world[mapY][mapX] ~= 0x0 then
+      --[=[
       if thin[world[mapY][mapX]] and side == thin[world[mapY][mapX]] then
         if side == 1 then
           local Ix, Iy = intersects(mapX, mapY+0.5, mapX+1, mapY + 0.5,
@@ -182,16 +183,20 @@ local function castRay(x, invertX, invertY, drawBuf)
             hit = world[mapY][mapX]
             ix, iy = Ix, Iy
           end
+          print(ix, iy)
         else
         end
-      elseif not thin[world[mapY][mapX]] then
+      elseif not thin[world[mapY][mapX]] then--]=]
         hit = world[mapY][mapX]
-      end
+      --end
     end
   end
 
-  if side == 0 then perpWallDist = sideDistX - deltaDistX + wallXOffset
-  else perpWallDist = sideDistY - deltaDistY + wallYOffset end
+  if side == 0 then perpWallDist = sideDistX - deltaDistX
+  else perpWallDist = sideDistY - deltaDistY end
+  --if ix and iy then
+  --  perpWallDist = ((ix - posX + iy - posY) / 2) / ((rayDirX + rayDirY) / 2)
+  --end
 
   if drawBuf then
     local lineHeight = math.floor(h / perpWallDist)
@@ -241,7 +246,8 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  return perpWallDist
+  print("COLLIDE WITH " .. hit)
+  return perpWallDist, hit, mapX, mapY
 end
 
 local ftavg = 0
@@ -349,7 +355,7 @@ while true do
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
-  if pressed[keys.right] then
+  if pressed[keys.right] or pressed[keys.d] then
     local oldDirX = dirX
     dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
     dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
@@ -357,13 +363,19 @@ while true do
     planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
     planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
   end
-  if pressed[keys.left] then
+  if pressed[keys.left] or pressed[keys.a] then
     local oldDirX = dirX
     dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
     dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
     local oldPlaneX = planeX
     planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
     planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
+  end
+  if pressed[keys.space] then
+    local dist, tile, mx, my = castRay(math.floor(w * 0.5))
+    if dist < 2 and tile == 12 then
+      world[my][mx] = 0
+    end
   end
 end
 
