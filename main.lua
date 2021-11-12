@@ -5,16 +5,16 @@ local w, h = term.getSize(2)
 local textures = {}
 local texWidth, texHeight = 64, 64
 
-local world = {}
+local world, thin = {}, {[12] = 1}
 local floorColor = 0x1
 local ceilColor = 0x2
 
-local function loadWorld()
+local function loadWorld(file, _world)
   local n, cn = 0, 0
-  for line in io.lines(shell.dir().."/world.txt") do
-    world[n] = {}
+  for line in io.lines(shell.dir().."/"..file) do
+    _world[n] = {}
     for c in line:gmatch(".") do
-      world[n][cn] = tonumber("0x"..c) or 0
+      _world[n][cn] = tonumber("0x"..c) or 0
       cn = cn + 1
     end
     n = n + 1
@@ -73,7 +73,7 @@ local function loadTexture(id, file)
   handle:close()
 end
 
-loadWorld()
+loadWorld("world.txt", world)
 
 local posX, posY = 20, 20
 local dirX, dirY = -1, 0
@@ -98,15 +98,26 @@ loadTexture(8, "mossy.tex")
 loadTexture(9, "barrel.tex")
 loadTexture(10, "greenlight.tex")
 loadTexture(11, "pillar.tex")
+loadTexture(12, "door.tex")
 
 local sprites = {
-  {18, 18, 9},
-  {17, 17, 11}
+  {18.5, 18.5, 9},
+  {17.5, 17.5, 11},
+  {16.5, 16.5, 10}
 }
 
 local pressed = {}
 
 local lastTimerID
+
+local function intersects(x1, y1, x2, y2, x3, y3, x4, y4)
+  local A1, B1 = y2 - y1, x1 - x2
+  local C1 = A1 * x1 + B1 * y1
+  local A2, B2 = y4 - y3, x3 - x4
+  local C2 = A2 * x3 + B2 * y3
+  local denominator = A1 * B2 - A2 * B1
+  return (B2 * C1 - B1 * C2) / denominator, (A2 * C2 - A2 * C1) / denominator
+end
 
 local function castRay(x, invertX, invertY, drawBuf)
   local mapX = math.floor(posX)
@@ -149,6 +160,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     sideDistY = (mapY + 1 - posY) * deltaDistY
   end
 
+  local ix, iy
   while not hit do
     if sideDistX < sideDistY then
       sideDistX = sideDistX + deltaDistX
@@ -162,12 +174,24 @@ local function castRay(x, invertX, invertY, drawBuf)
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
     elseif world[mapY][mapX] ~= 0x0 then
-      hit = world[mapY][mapX]
+      if thin[world[mapY][mapX]] and side == thin[world[mapY][mapX]] then
+        if side == 1 then
+          local Ix, Iy = intersects(mapX, mapY+0.5, mapX+1, mapY + 0.5,
+            posX, posY, posX + rayDirX, posY + rayDirY)
+          if Ix >= mapX and Ix <= mapX + 1 and Iy >= mapY and Iy <= mapY+1 then
+            hit = world[mapY][mapX]
+            ix, iy = Ix, Iy
+          end
+        else
+        end
+      elseif not thin[world[mapY][mapX]] then
+        hit = world[mapY][mapX]
+      end
     end
   end
 
-  if side == 0 then perpWallDist = (sideDistX - deltaDistX)
-  else perpWallDist = sideDistY - deltaDistY end
+  if side == 0 then perpWallDist = sideDistX - deltaDistX + wallXOffset
+  else perpWallDist = sideDistY - deltaDistY + wallYOffset end
 
   if drawBuf then
     local lineHeight = math.floor(h / perpWallDist)
@@ -306,11 +330,13 @@ while true do
   elseif sig == "key_up" then
     pressed[code] = false
   end
+  
   if pressed[keys.up] or pressed[keys.w] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
     local dist = math.min(castRay(math.floor(w * 0.5)),
-      castRay(math.floor(w * 0.75)), castRay(math.floor(w * 0.25)))
+      castRay(math.floor(w * 0.75)),
+      castRay(math.floor(w * 0.25)))
     if dist > 0.8 then
       posX, posY = nposX, nposY end
   end
