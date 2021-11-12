@@ -25,6 +25,12 @@ local function loadWorld(file, _world)
   end
 end
 
+local function loadWorld(file, w, d)
+  local n, cn = 0, 0
+  local handle = assert(io.open(shell.dir().."/"..file, "rb"))
+  local dims = ("<I2I2"):unpack()
+end
+
 -- textures use a custom format:
 -- 1 byte: length of palette section
 -- for each palette entry:

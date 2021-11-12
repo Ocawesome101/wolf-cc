@@ -1,1 +1,28 @@
-A simple raycasting engine for CraftOS-PC's graphics mode.
+// COSPC-RAYCASTER
+A simple raycasting engine for CraftOS-PC's graphics mode.  Turning into a bit of a Wolf3D clone.
+
+Controls:
+  W/S/Up/Down: move forwards/backwards
+  A/D/Left/Right: turn left/right
+  Space: open doors
+
+Tiles are loaded as a map from `world.txt`.  The map is flipped (I'm not yet sure exactly how) due to how it's loaded.  Doors are determined by the `doors.txt` file, where each `1` is a door.
+
+See `TODO` for future plans.
+
+// TEXTURES
+Texture files use a custom image format.  The first byte of the file specifies the length of its palette section (this does limit any one texture to 64 unique colors).  For each 4-byte entry in this palette section, there is 1 byte specifiying the palette index that this color occupies, then the RGB value of the color.  The palette is unique to each texture.  Combined, all loaded textures must not use any more than 256 unique colors due to limitations of CraftOS-PC's graphics mode.
+
+After the palette comes the texture data.  This is a 4096-byte area, with each byte specifying the index in the texture's palette that is the color for that pixel.  This is converted upon load into a global palette index.  Similar colors are automatically matched, so that slight variations in color are discarded.
+
+To convert a PNG file into a TEX file, if you have ImageMagick installed, you may run the following command in a Bourne-style shell:
+
+  stream -map rgb FILE.png - | lua src-textures/raw2tex.lua > FILE.tex
+
+To add or modify a game texture, edit one of the textures contained in `src-textures` in thes repo.  It must be a 64x64 PNG file.  Run the `conv.sh` shell script to convert all the textures in the `src-textures` folder into game textures.  It will automatically place them into the correct folder.
+
+To load a texture, add a `loadTexture()` call with a unique texture index and the filename of the texture after line 111 in `main.lua`.  For example,
+
+  loadTexture(5, "bluestone.tex")
+
+loads the texture file `textures/bluestone.tex` as texture 5.  Texture 0 is unusable.  There may be no more than 256 colors.

@@ -5,3 +5,4 @@ Still to-do:
  - Add a health system
  - Add enemies with some form of AI
  - Basically turn this into a game?
+ - Refactor the world format to a single binary file (allowing for things such as:  more than 15 distinct textures, a flag for if a tile is a door rather than a separate tileset, etc) and write a map editor
