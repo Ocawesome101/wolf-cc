@@ -41,7 +41,7 @@ local function loadWorld(file, w, d)
       local id = texID:sub(1,1):byte()
       texID = texID:sub(2)
       data = data:sub(2 + #texID)
-      loadTexture(id, texID)
+      loadTexture(id, texID..".tex")
     else
       texID = nil
     end
@@ -142,6 +142,7 @@ term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
 
+--[[
 loadTexture(1, "eagle.tex")
 loadTexture(2, "redbrick.tex")
 loadTexture(3, "purplestone.tex")
@@ -154,6 +155,9 @@ loadTexture(9, "barrel.tex")
 loadTexture(10, "greenlight.tex")
 loadTexture(11, "pillar.tex")
 loadTexture(12, "door.tex")
+]]
+
+loadWorld("maps/map01.map", world, doors)
 
 local lastTimerID
 
