@@ -11,7 +11,7 @@ local texWidth, texHeight = 64, 64
 local world, doors = {}, {}
 local floorColor = 0x1
 local ceilColor = 0x2
-
+--[[
 local function loadWorld(file, _world)
   local n, cn = 0, 0
   for line in io.lines(shell.dir().."/"..file) do
@@ -23,12 +23,57 @@ local function loadWorld(file, _world)
     n = n + 1
     cn = 0
   end
-end
+end]]
 
+local sprites = {}
+
+local pressed = {}
+
+local loadTexture
 local function loadWorld(file, w, d)
   local n, cn = 0, 0
   local handle = assert(io.open(shell.dir().."/"..file, "rb"))
-  local dims = ("<I2I2"):unpack()
+  local ww, wh = ("<I2I2"):unpack(handle:read(4))
+  local data = handle:read("a")
+  repeat
+    local texID = ("<s1"):unpack(data)
+    if texID and #texID > 0 then
+      local id = texID:sub(1,1):byte()
+      texID = texID:sub(2)
+      data = data:sub(2 + #texID)
+      loadTexture(id, texID)
+    else
+      texID = nil
+    end
+  until not texID
+  data = data:sub(2)
+  w[n] = {}
+  sprites = {}
+  d[n] = {}
+  for byte in data:gmatch(".") do
+    local door = bit32.band(byte, 0x80) ~= 0
+    local sprite = bit32.band(byte, 0x40) ~= 0
+    
+    if door and sprite then door, sprite = false, false end
+    if not d[n] then d[n] = {} end
+    
+    if door then
+      d[n][cn] = true
+    end
+    if sprite then
+      sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
+    end
+
+    if cn >= ww then
+      n = n + 1
+      cn = 0
+      w[n] = {}
+    end
+    w[n][cn] = 0
+    if not sprite then
+      w[n][cn] = bit32.band(byte, 0x3F)
+    end
+  end
 end
 
 -- textures use a custom format:
@@ -38,7 +83,7 @@ end
 -- 3 bytes: RGB value
 -- then raw texture data
 local lastSetPal = 2
-local function loadTexture(id, file)
+local loadTexture = function(id, file)
   textures[id] = {}
   local tex = textures[id]
   local n = 0
@@ -109,14 +154,6 @@ loadTexture(9, "barrel.tex")
 loadTexture(10, "greenlight.tex")
 loadTexture(11, "pillar.tex")
 loadTexture(12, "door.tex")
-
-local sprites = {
-  {18.5, 18.5, 9},
-  {17.5, 17.5, 11},
-  {16.5, 16.5, 10}
-}
-
-local pressed = {}
 
 local lastTimerID
 

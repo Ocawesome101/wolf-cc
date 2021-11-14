@@ -26,3 +26,8 @@ To load a texture, add a `loadTexture()` call with a unique texture index and th
   loadTexture(5, "bluestone.tex")
 
 loads the texture file `textures/bluestone.tex` as texture 5.  Texture 0 is unusable.  There may be no more than 256 colors.
+
+// MAPS
+The engine uses a very simple, custom world format similar to the texture format.  The first four bytes specify the respective width and height as unsigned, little-endian 16-bit numbers.  The next section of the file specifies the texture palette of that map.  This section is composed of length-prefixed string-ID pairs - one byte for the length of the texture name, including a one-byte ID, and then the texture data.  After this section, there is a section of length (w*h) where each byte is a texture ID.
+
+The first two bits of this byte specify it as a door (if the first bit is set), or a sprite (if the second is set).  If either both or neither are set, the tile is just a regular tile.
