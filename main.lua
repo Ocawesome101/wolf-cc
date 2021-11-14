@@ -40,7 +40,7 @@ local function loadWorld(file, w, d)
     if texID and #texID > 0 then
       local id = texID:sub(1,1):byte()
       texID = texID:sub(2)
-      data = data:sub(2 + #texID)
+      data = data:sub(3 + #texID)
       loadTexture(id, texID..".tex")
     else
       texID = nil
@@ -51,6 +51,7 @@ local function loadWorld(file, w, d)
   sprites = {}
   d[n] = {}
   for byte in data:gmatch(".") do
+    byte = byte:byte()
     local door = bit32.band(byte, 0x80) ~= 0
     local sprite = bit32.band(byte, 0x40) ~= 0
     
@@ -83,7 +84,7 @@ end
 -- 3 bytes: RGB value
 -- then raw texture data
 local lastSetPal = 2
-local loadTexture = function(id, file)
+loadTexture = function(id, file)
   textures[id] = {}
   local tex = textures[id]
   local n = 0
@@ -127,10 +128,7 @@ local loadTexture = function(id, file)
   handle:close()
 end
 
-loadWorld("world.txt", world)
-loadWorld("doors.txt", doors)
-
-local posX, posY = 21, 11
+local posX, posY = 3, 3
 local dirX, dirY = -1, 0
 local planeX, planeY = 0, 0.66
 
