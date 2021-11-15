@@ -43,7 +43,7 @@ if fs.exists(file) then
       cn = 0
       map[n] = map[n] or {}
     end
-    map[n][cn] = byte:byte() or 0
+    map[n][cn] = byte:byte()
     cn = cn + 1
   end
 end
@@ -58,10 +58,10 @@ local function save()
   for i=1, #textures, 1 do
     handle:write(("<s1"):pack(string.char(i)..textures[i]))
   end
-  handle:write("\0\0")
-  for i=0, mw, 1 do
-    for j=1, mh, 1 do
-      handle:write(string.char(map[i] and map[i][j] or 0))
+  handle:write("\0")
+  for i=0, mw-1, 1 do
+    for j=0, mh-1, 1 do
+      handle:write(string.char(map[i][j]))
     end
   end
   handle:close()
@@ -75,14 +75,15 @@ local function addTexture()
   term.clear()
   term.setCursorPos(1,1)
   io.write("Enter a texture ID: ")
-  local id
+  local id, last
   repeat
     id = tonumber(io.read("l"))
-    if (not id) or textures[id] or id < 0 or id > 64 then
+    if (not id) or (textures[id] and last ~= id) or id < 0 or id > 64 then
       printError("texture already exists, or bad texture ID")
       io.write("Enter a texture ID: ")
     end
-  until id and not textures[id] and id > 0 and id < 64
+    last = id
+  until id and not (textures[id] and last ~= id) and id > 0 and id < 64
   io.write("Enter texture name: ")
   local name
   repeat
@@ -123,8 +124,8 @@ end
 local function setFlags(x, y)
   term.setGraphicsMode(0)
   local tile = map[x][y]
-  local door = bit32.band(byte, 0x80) ~= 0
-  local sprite = bit32.band(byte, 0x40) ~= 0
+  local door = bit32.band(tile, 0x80) ~= 0
+  local sprite = bit32.band(tile, 0x40) ~= 0
 
   print(string.format("Current flags:\ndoor: %d\nsprite: %d",
     door and 1 or 0, sprite and 1 or 0))
@@ -223,11 +224,8 @@ while true do
   local sig = table.pack(os.pullEvent())
   if sig[1] == "mouse_click" then
     local ax, ay = sig[3], sig[4]
-    if showTextureOverlay then
-      if ax > 96 then
-        showTextureOverlay = false
-        lastTime = os.epoch("utc")
-      elseif ay > (h - 6) then
+    if showTextureOverlay and ax <= 96 then
+      if ay > (h - 6) then
         save()
       elseif ay > (h - 12) then
         changeColor()
@@ -237,6 +235,9 @@ while true do
         local sel = math.floor((ay - 10) / 6)
         if sel >= 0 and textures[sel] then
           selTex = sel
+        else
+          showTextureOverlay = false
+          lastTime = os.epoch("utc")
         end
       end
     elseif ax < 10 and ay < 10 then
@@ -253,7 +254,7 @@ while true do
         end
       end
     end
-  elseif sig[1] == "mouse_drag" and not showTextureOverlay then
+  elseif sig[1] == "mouse_drag" and (sig[3] >= 96 or not showTextureOverlay)then
     local ax, ay = sig[3], sig[4]
     local x, y = math.floor((ax-scx) / (tileSize+1)),
       math.floor((ay-scy) / (tileSize+1))
