@@ -320,7 +320,7 @@ while true do
 
       if transformY > 0 and stripe > 0 and stripe < w
           and transformY < zBuf[stripe] then
-        for y = math.floor(drawStartY), drawEndY, 1 do
+        for y = math.ceil(drawStartY), drawEndY, 1 do
           local d = y - h / 2 + spriteHeight / 2
           local texY = math.floor(((d * texHeight) / spriteHeight) % 64)
           local color = textures[s[3]][texWidth * texY + texX]
