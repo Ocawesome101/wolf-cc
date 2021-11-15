@@ -29,8 +29,8 @@ if fs.exists(file) then
     if texID and #texID > 0 then
       local id = texID:sub(1,1):byte()
       texID = texID:sub(2)
-      data = data:sub(2 + #texID)
-      textures[texID] = data
+      data = data:sub(3 + #texID)
+      textures[id] = texID
     else
       texID = nil
     end
@@ -41,7 +41,7 @@ if fs.exists(file) then
     if cn >= ww then
       n = n + 1
       cn = 0
-      map[n] = {}
+      map[n] = map[n] or {}
     end
     map[n][cn] = byte:byte() or 0
     cn = cn + 1
@@ -56,11 +56,12 @@ local function save()
   local handle = assert(io.open(file, "wb"))
   handle:write(("<I2I2"):pack(mw, mh))
   for i=1, #textures, 1 do
-    handle:write(("<I1"):pack(#textures[i] + 1)..string.char(i)..textures[i])
+    handle:write(("<s1"):pack(string.char(i)..textures[i]))
   end
+  handle:write("\0\0")
   for i=0, mw, 1 do
     for j=1, mh, 1 do
-      handle:write(string.char(map[j] and map[j][i] or 0))
+      handle:write(string.char(map[i] and map[i][j] or 0))
     end
   end
   handle:close()
