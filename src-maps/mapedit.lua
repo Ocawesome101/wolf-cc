@@ -77,12 +77,12 @@ local function addTexture()
   io.write("Enter a texture ID: ")
   local id, last
   repeat
+    last = id
     id = tonumber(io.read("l"))
     if (not id) or (textures[id] and last ~= id) or id < 0 or id > 64 then
       printError("texture already exists, or bad texture ID")
       io.write("Enter a texture ID: ")
     end
-    last = id
   until id and not (textures[id] and last ~= id) and id > 0 and id < 64
   io.write("Enter texture name: ")
   local name
@@ -132,7 +132,7 @@ local function setFlags(x, y)
 
   io.write(string.format("New flags (empty to leave unchanged) [%d%d]: ",
     door and 1 or 0, sprite and 1 or 0))
-  local text = io.read(2)
+  local text = io.read("l")
   door = text:sub(1,1) == "1"
   sprite = text:sub(2,2) == "1"
 
