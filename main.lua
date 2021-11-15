@@ -58,20 +58,18 @@ local function loadWorld(file, w, d)
     if door and sprite then door, sprite = false, false end
     if not d[n] then d[n] = {} end
     
-    if door then
-      d[n][cn] = true
-    end
-    if sprite then
-      sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
-    end
-
     if cn >= ww then
       n = n + 1
       cn = 0
       w[n] = w[n] or {}
     end
     w[n][cn] = 0
-    if not sprite then
+    if door then
+      d[n][cn] = true
+    end
+    if sprite then
+      sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
+    else
       w[n][cn] = bit32.band(byte, 0x3F)
     end
     cn = cn + 1
@@ -394,7 +392,7 @@ while true do
   end
   if pressed[keys.space] then
     local dist, tile, mx, my = castRay(math.floor(w * 0.5))
-    if dist < 2 and doors[my] and doors[my][mx] == 1 then
+    if dist < 2 and doors[my] and doors[my][mx] then
       world[my][mx] = 0
     end
   end
