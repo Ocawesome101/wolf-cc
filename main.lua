@@ -8,22 +8,9 @@ local COLL_FAR_RIGHT = 0.6
 local textures = {}
 local texWidth, texHeight = 64, 64
 
-local world, doors = {}, {}
+local world, doors, interpDoors = {}, {}, {}
 local floorColor = 0x1
 local ceilColor = 0x2
---[[
-local function loadWorld(file, _world)
-  local n, cn = 0, 0
-  for line in io.lines(shell.dir().."/"..file) do
-    _world[n] = {}
-    for c in line:gmatch(".") do
-      _world[n][cn] = tonumber("0x"..c) or 0
-      cn = cn + 1
-    end
-    n = n + 1
-    cn = 0
-  end
-end]]
 
 local sprites = {}
 
@@ -31,6 +18,7 @@ local pressed = {}
 
 local loadTexture
 local function loadWorld(file, w, d)
+  interpDoors = {}
   local n, cn = 0, 0
   local handle = assert(io.open(shell.dir().."/"..file, "rb"))
   local ww, wh = ("<I2I2"):unpack(handle:read(4))
@@ -65,7 +53,7 @@ local function loadWorld(file, w, d)
     end
     w[n][cn] = 0
     if door then
-      d[n][cn] = true
+      d[n][cn] = 0
     end
     if sprite then
       sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
@@ -198,8 +186,9 @@ local function castRay(x, invertX, invertY, drawBuf)
     pmX, pmY = mapX, mapY
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
-    elseif doors[mapY] and doors[mapY][mapX] and (world[mapY]
+    elseif doors[mapY] and doors[mapY][mapX] and doors[mapY][mapX] < 64 and (world[mapY]
         and world[mapY][mapX]) ~= 0 then
+      local dst = doors[mapY][mapX]
       -- calculations taken from https://gist.github.com/Powersaurus/ea9a1d57fb30ea166e7e48762dca0dde
       local trueDeltaX = math.sqrt(1+(rayDirY*rayDirY)/(rayDirX*rayDirX))
       local trueDeltaY = math.sqrt(1+(rayDirX*rayDirX)/(rayDirY*rayDirY))
@@ -213,20 +202,20 @@ local function castRay(x, invertX, invertY, drawBuf)
         local rye = posY + rayDirY * rayMult
         local trueStepY = math.sqrt(trueDeltaX*trueDeltaX-1)
         local halfStepY = rye + (stepY*trueStepY)/2
-        if math.floor(halfStepY) == mapY then-- and halfStepY > 0 then
+        if math.floor(halfStepY) == mapY and halfStepY - mapY > dst then
           hit = world[mapY][mapX]
           pmX = pmX + stepX/2
-          door = true
+          door = doors[mapY][mapX]
         end
       else
         local rayMult = (mapY2 - posY)/rayDirY
         local rxe = posX + rayDirX * rayMult
         local trueStepX = math.sqrt(trueDeltaY*trueDeltaY-1)
         local halfStepX = rxe + (stepX*trueStepX)/2
-        if math.floor(halfStepX) == mapX then --and halfStepX > 0 then
+        if math.floor(halfStepX) == mapX and halfStepX - mapX > dst then
           hit = world[mapY][mapX]
           pmY = pmY + stepY/2
-          door = true
+          door = doors[mapY][mapX]
         end
       end
     elseif world[mapY][mapX] ~= 0x0 then
@@ -235,6 +224,7 @@ local function castRay(x, invertX, invertY, drawBuf)
   end
 
   if not door then
+    door = 0
     if side == 0 then perpWallDist = sideDistX - deltaDistX
     else perpWallDist = sideDistY - deltaDistY end
   else
@@ -269,6 +259,7 @@ local function castRay(x, invertX, invertY, drawBuf)
       local wallX
       if side == 0 then wallX = posY + perpWallDist * rayDirY
       else wallX = posX + perpWallDist * rayDirX end
+      wallX = wallX - door
       wallX = wallX - math.floor(wallX)
       
       local texX = math.floor(wallX * texWidth)
@@ -431,7 +422,16 @@ while true do
   if pressed[keys.space] then
     local dist, tile, mx, my = castRay(math.floor(w * 0.5))
     if dist < 2 and doors[my] and doors[my][mx] then
-      world[my][mx] = 0
+      interpDoors[#interpDoors+1] = {my, mx}
+    end
+  end
+  for i=#interpDoors, 1, -1 do
+    local y, x = table.unpack(interpDoors[i])
+    if doors[y][x] < 1 then
+      doors[y][x] = doors[y][x] + 0.1 * moveSpeed
+    else
+      world[y][x] = 0
+      table.remove(interpDoors, i)
     end
   end
 end
