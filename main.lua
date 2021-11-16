@@ -317,8 +317,32 @@ local playerHP = 100
 
 local function tickEnemy(sid, moveSpeed)
   local spr = sprites[sid]
+  local px, py = spr[1], spr[2]
   local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
-  local playerDistX, playerDistY = 0, 0
+  local playerDistX, playerDistY = math.abs(posX - px), math.abs(posY - py)
+  if playerDistX < 15 and playerDistY < 15 then
+    posX = px
+    posY = py
+    local a, b = playerDistX, playerDistY
+    local c = math.sqrt(a*a + b*b)
+    local angle = math.asin(a / c)
+    dirX = 
+    dirY = 
+    local doesHit, dist = castRay()
+    -- chance per tick that the player is hit
+    local hit = math.random(-1000, 5)
+    if hit > 0 then
+      playerHealth = playerHeakth - hit
+    end
+  end
+  if playerDistX > 8 and playerDistY > 8 then
+    -- move toward player
+    local signX, singY = 1
+    if opx > px then signX = -1 end
+    if opy > py then signY = -1 end
+    spr[1] = px + signX * moveSpeed
+    spr[2] = py + signY * moveSpeed
+  end
   posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, dx, dy
 end
 
