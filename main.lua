@@ -128,8 +128,8 @@ loadTexture = function(id, file)
 end
 
 local posX, posY = 3, 3
-local dirX, dirY = -1, 0
-local planeX, planeY = 0, 0.66
+local dirX, dirY = 0, 1
+local planeX, planeY = 0.6, 0
 
 local time, oldTime = 0, 0
 
@@ -138,21 +138,6 @@ term.setGraphicsMode(2)
 term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
-
---[[
-loadTexture(1, "eagle.tex")
-loadTexture(2, "redbrick.tex")
-loadTexture(3, "purplestone.tex")
-loadTexture(4, "greystone.tex")
-loadTexture(5, "bluestone.tex")
-loadTexture(6, "mossy.tex")
-loadTexture(7, "wood.tex")
-loadTexture(8, "colorstone.tex")
-loadTexture(9, "barrel.tex")
-loadTexture(10, "greenlight.tex")
-loadTexture(11, "pillar.tex")
-loadTexture(12, "door.tex")
-]]
 
 loadWorld("maps/map01.map", world, doors)
 
@@ -400,3 +385,4 @@ end
 
 term.setGraphicsMode(0)
 print("Average FPS: " .. 1/ftavg)
+print(dirX, dirY, planeX, planeY)
