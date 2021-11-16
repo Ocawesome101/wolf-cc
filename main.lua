@@ -6,6 +6,7 @@ local COLL_FAR_LEFT = 0.4
 local COLL_FAR_RIGHT = 0.6
 
 local textures = {}
+local texids = {}
 local texWidth, texHeight = 64, 64
 
 local world, doors, interpDoors = {}, {}, {}
@@ -29,6 +30,7 @@ local function loadWorld(file, w, d)
       local id = texID:sub(1,1):byte()
       texID = texID:sub(2)
       data = data:sub(3 + #texID)
+      texids[id] = texID
       loadTexture(id, texID..".tex")
     else
       texID = nil
@@ -42,6 +44,7 @@ local function loadWorld(file, w, d)
     byte = byte:byte()
     local door = bit32.band(byte, 0x80) ~= 0
     local sprite = bit32.band(byte, 0x40) ~= 0
+    local value = bit32.band(byte, 0x3F)
     
     if door and sprite then door, sprite = false, false end
     if not d[n] then d[n] = {} end
@@ -53,7 +56,7 @@ local function loadWorld(file, w, d)
     end
     w[n][cn] = 0
     if door then
-      d[n][cn] = 0
+      d[n][cn] = {0, texids[value] == "door" and 0.5 or 0}
     end
     if sprite then
       sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
@@ -186,9 +189,10 @@ local function castRay(x, invertX, invertY, drawBuf)
     pmX, pmY = mapX, mapY
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
-    elseif doors[mapY] and doors[mapY][mapX] and doors[mapY][mapX] < 64 and (world[mapY]
-        and world[mapY][mapX]) ~= 0 then
-      local dst = doors[mapY][mapX]
+    elseif doors[mapY] and doors[mapY][mapX] and doors[mapY][mapX][1] < 64
+        and (world[mapY] and world[mapY][mapX]) ~= 0 then
+      local dst = doors[mapY][mapX][1]
+      local ddst = doors[mapY][mapX][2]
       -- calculations taken from https://gist.github.com/Powersaurus/ea9a1d57fb30ea166e7e48762dca0dde
       local trueDeltaX = math.sqrt(1+(rayDirY*rayDirY)/(rayDirX*rayDirX))
       local trueDeltaY = math.sqrt(1+(rayDirX*rayDirX)/(rayDirY*rayDirY))
@@ -201,21 +205,21 @@ local function castRay(x, invertX, invertY, drawBuf)
         local rayMult = ((mapX2 - posX)+1)/rayDirX
         local rye = posY + rayDirY * rayMult
         local trueStepY = math.sqrt(trueDeltaX*trueDeltaX-1)
-        local halfStepY = rye + (stepY*trueStepY)/2
+        local halfStepY = rye + (stepY*trueStepY)*ddst
         if math.floor(halfStepY) == mapY and halfStepY - mapY > dst then
           hit = world[mapY][mapX]
-          pmX = pmX + stepX/2
-          door = doors[mapY][mapX]
+          pmX = pmX + stepX*ddst
+          door = dst
         end
       else
         local rayMult = (mapY2 - posY)/rayDirY
         local rxe = posX + rayDirX * rayMult
         local trueStepX = math.sqrt(trueDeltaY*trueDeltaY-1)
-        local halfStepX = rxe + (stepX*trueStepX)/2
+        local halfStepX = rxe + (stepX*trueStepX)*ddst
         if math.floor(halfStepX) == mapX and halfStepX - mapX > dst then
           hit = world[mapY][mapX]
-          pmY = pmY + stepY/2
-          door = doors[mapY][mapX]
+          pmY = pmY + stepY*ddst
+          door = dst
         end
       end
     elseif world[mapY][mapX] ~= 0x0 then
@@ -289,13 +293,14 @@ end
 local function tickEnemy(sid, moveSpeed)
   local spr = sprites[sid]
   local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
-  
+  local playerDistX, playerDistY = 0, 0
   posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, dx, dy
 end
 
 local function tickProjectile(sid, moveSpeed)
   local spr = sprites[sid]
-  
+  spr[1] = spr[1] + moveSpeed * spr[4]
+  spr[2] = spr[2] + moveSpeed * spr[5]
 end
 
 local ftavg = 0
@@ -388,20 +393,22 @@ while true do
   if pressed[keys.up] or pressed[keys.w] then
     local nposX = posX + dirX * moveSpeed
     local nposY = posY + dirY * moveSpeed
+    -- [[
     local dist = math.min((castRay(math.floor(w * 0.5))),
       (castRay(math.floor(w * COLL_FAR_LEFT))),
       (castRay(math.floor(w * COLL_FAR_RIGHT))))
     if dist > 0.8 then
-      posX, posY = nposX, nposY end
+      posX, posY = nposX, nposY end--]]
   end
   if pressed[keys.down] or pressed[keys.s] then
     local nposX = posX - dirX * moveSpeed
     local nposY = posY - dirY * moveSpeed
+    -- [[
     local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
       (castRay(math.floor(w * COLL_FAR_LEFT), true, true)),
       (castRay(math.floor(w * COLL_FAR_RIGHT), true, true)))
     if dist > 0.8 then
-      posX, posY = nposX, nposY end
+      posX, posY = nposX, nposY end--]]
   end
   if pressed[keys.right] or pressed[keys.d] then
     local oldDirX = dirX
@@ -422,16 +429,27 @@ while true do
   if pressed[keys.space] then
     local dist, tile, mx, my = castRay(math.floor(w * 0.5))
     if dist < 2 and doors[my] and doors[my][mx] then
-      interpDoors[#interpDoors+1] = {my, mx}
+      interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
     end
   end
   for i=#interpDoors, 1, -1 do
     local y, x = table.unpack(interpDoors[i])
-    if doors[y][x] < 1 then
-      doors[y][x] = doors[y][x] + 0.1 * moveSpeed
-    else
-      world[y][x] = 0
-      table.remove(interpDoors, i)
+    if os.epoch("utc") - interpDoors[i][3] >= 5000 then
+      if doors[y][x][1] <= 0 then
+        if doors[y][x][3] and doors[y][x][2] > 0 then
+          doors[y][x][2] = doors[y][x][2] - 0.05 * moveSpeed
+        else
+          doors[y][x][1] = 0
+          table.remove(interpDoors, i)
+        end
+      else
+        doors[y][x][1] = doors[y][x][1] - 0.05 * moveSpeed
+      end
+    elseif doors[y][x][2] < 0.5 then
+      doors[y][x][3] = true
+      doors[y][x][2] = doors[y][x][2] + 0.05 * moveSpeed
+    elseif doors[y][x][1] < 1 then
+      doors[y][x][1] = doors[y][x][1] + 0.05 * moveSpeed
     end
   end
 end
