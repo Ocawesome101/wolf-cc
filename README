@@ -11,7 +11,7 @@ Tiles are loaded as a map from `world.txt`.  The map is flipped (I'm not yet sur
 See `TODO` for future plans.
 
 // TEXTURES
-Texture files use a custom image format.  The first byte of the file specifies the length of its palette section (this does limit any one texture to 64 unique colors).  For each 4-byte entry in this palette section, there is 1 byte specifiying the palette index that this color occupies, then the RGB value of the color.  The palette is unique to each texture.  Combined, all loaded textures must not use any more than 256 unique colors due to limitations of CraftOS-PC's graphics mode.
+Texture files use a custom image format.  The first two bytes of the file specify the length of its palette section.  For each 4-byte entry in this palette section, there is 1 byte specifiying the palette index that this color occupies, then the RGB value of the color.  The palette is unique to each texture.  Combined, all loaded textures must not use any more than 256 unique colors due to limitations of CraftOS-PC's graphics mode.
 
 After the palette comes the texture data.  This is a 4096-byte area, with each byte specifying the index in the texture's palette that is the color for that pixel.  This is converted upon load into a global palette index.  Similar colors are automatically matched, so that slight variations in color are discarded.
 
