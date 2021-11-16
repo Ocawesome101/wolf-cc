@@ -5,6 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
+-- fade to black
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -330,6 +331,17 @@ local function tickProjectile(sid, moveSpeed)
   local ax, ay = math.floor(spr[1]), math.floor(spr[2])
   if ax == math.floor(posX) and ay == math.floor(posY) and not spr[6] then
     return true
+  elseif world[ay] and world[ay][ax] ~= 0 then
+    table.remove(sprites, sid)
+  else
+    for i=1, #sprites, 1 do
+      if sprites[i] and i ~= sid then
+        local sx, sy = math.floor(sprites[i][1], math.floor(sprites[i][2]))
+        if ax == sx and ay == sy then
+          table.remove(sprites, i)
+        end
+      end
+    end
   end
 end
 
@@ -498,7 +510,7 @@ while true do
     local exit
     -- update projectiles
     for i=1, #sprites, 1 do
-      if sprites[i][3] == 512 then
+      if sprites[i] and sprites[i][3] == 512 then
         exit = tickProjectile(i, moveSpeed*1.5)
         if exit then break end
       end
@@ -515,36 +527,27 @@ while true do
   end
 end
 
+-- fade to black
 for i=0, 255, 1 do
+  local cnt = false
   for i=0, 255, 1 do
     local r, g, b = term.getPaletteColor(i)
+    cnt = cnt or (r ~= 0 or g ~= 0 or b ~= 0)
     r = math.max(0, r - 0.01)
     g = math.max(0, g - 0.01)
     b = math.max(0, b - 0.01)
     term.setPaletteColor(i, r, g, b)
   end
+  if not cnt then break end
   os.sleep(0.01)
 end
 
 term.setGraphicsMode(0)
+term.clear()
+term.setCursorPos(1,1)
 print("Average FPS: " .. 1/ftavg)
+print("Thank you for playing.")
 
 for i=0, 15, 1 do
-  term.setPaletteColor(2^i, 0)
-end
-
-for n=0, 255, 1 do
-  local cnt = false
-  for i=0, 15, 1 do
-    local r, g, b = term.getPaletteColor(2^i)
-    if r ~= craftos_colors[i][1] or g ~= craftos_colors[i][2]
-        or b ~= craftos_colors[i][3] then
-      cnt = true
-    end
-    term.setPaletteColor(2^i, math.min(r + 0.01, craftos_colors[i][1]),
-      math.min(g + 0.01, craftos_colors[i][2]),
-      math.min(b + 0.01, craftos_colors[i][3]))
-  end
-  if not cnt then break end
-  os.sleep(0.01)
+  term.setPaletteColor(2^i, table.unpack(craftos_colors[i]))
 end
