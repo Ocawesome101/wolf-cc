@@ -89,7 +89,7 @@ loadTexture = function(id, file)
   local n = 0
   local handle = assert(io.open(shell.dir().."/textures/"..file))
   local palConv = {}
-  local palLen = handle:read(1):byte()
+  local palLen = ("<I2"):unpack(handle:read(2))
   local r = 0
   local eq = 0
   while r < palLen do
@@ -220,7 +220,7 @@ local function castRay(x, invertX, invertY, drawBuf)
   else perpWallDist = sideDistY - deltaDistY end
 
   if drawBuf then
-    local lineHeight = math.floor(h / perpWallDist)
+    local lineHeight = math.floor(h / perpWallDist * 1.1)
 
     local drawStart = math.max(0, -lineHeight / 2 + h / 2)
     local drawEnd = math.min(h - 1, lineHeight / 2 + h / 2)
@@ -305,7 +305,7 @@ while true do
 
     local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
 
-    local spriteHeight = math.abs(math.floor(h / transformY))
+    local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
 
     local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
     local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)

@@ -23,7 +23,7 @@ while true do
 end
 
 io.stderr:write("palette colors: " .. #palette .. "\n")
-local paldata = string.char(#palette * 4 + 4)
+local paldata = string.pack("<I2", #palette * 4 + 4)
 for i=0, #palette, 1 do
   paldata = paldata .. string.pack("<I1I3", i, palette[i])
 end
