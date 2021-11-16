@@ -184,7 +184,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     sideDistY = (mapY + 1 - posY) * deltaDistY
   end
 
-  local pmX, pmY
+  local pmX, pmY, door
   while not hit do
     if sideDistX < sideDistY then
       sideDistX = sideDistX + deltaDistX
@@ -216,6 +216,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         if math.floor(halfStepY) == mapY then-- and halfStepY > 0 then
           hit = world[mapY][mapX]
           pmX = pmX + stepX/2
+          door = true
         end
       else
         local rayMult = (mapY2 - posY)/rayDirY
@@ -225,6 +226,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         if math.floor(halfStepX) == mapX then --and halfStepX > 0 then
           hit = world[mapY][mapX]
           pmY = pmY + stepY/2
+          door = true
         end
       end
     elseif world[mapY][mapX] ~= 0x0 then
@@ -232,13 +234,15 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  
-  --if side == 0 then perpWallDist = sideDistX - deltaDistX
-  --else perpWallDist = sideDistY - deltaDistY end
-  if side == 0 then
-    perpWallDist = (pmX - posX + (1 - stepX) / 2) / rayDirX
+  if not door then
+    if side == 0 then perpWallDist = sideDistX - deltaDistX
+    else perpWallDist = sideDistY - deltaDistY end
   else
-    perpWallDist = (pmY - posY + (1 - stepY) / 2) / rayDirY
+    if side == 0 then
+      perpWallDist = (pmX - posX + (1 - stepX) / 2) / rayDirX
+    else
+      perpWallDist = (pmY - posY + (1 - stepY) / 2) / rayDirY
+    end
   end
 
   if drawBuf then
