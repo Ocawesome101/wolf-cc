@@ -196,6 +196,35 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
+    elseif doors[mapY] and doors[mapY][mapX] and (world[mapY]
+        and world[mapY][mapX]) ~= 0 then
+      -- calculations taken from https://gist.github.com/Powersaurus/ea9a1d57fb30ea166e7e48762dca0dde
+      local trueDeltaX = math.sqrt(1+(rayDirY*rayDirY)/(rayDirX*rayDirX))
+      local trueDeltaY = math.sqrt(1+(rayDirX*rayDirX)/(rayDirY*rayDirY))
+      
+      local mapX2, mapY2 = mapX, mapY
+      if posX < mapX2 then mapX2 = mapX2 - 1 end
+      if posY > mapY2 then mapY2 = mapY2 + 1 end
+
+      if side == 0 then
+        local rayMult = ((mapX2 - posX)+1)/rayDirX
+        local rye = posY + rayDirY * rayMult
+        local trueStepY = math.sqrt(trueDeltaX*trueDeltaX-1)
+        local halfStepY = rye + (stepY*trueStepY)/2
+        if math.floor(halfStepY) == mapY then-- and halfStepY > 0 then
+          hit = world[mapY][mapX]
+          sideDistX = sideDistX + 0.5
+        end
+      else
+        local rayMult = (mapY2 - posY)/rayDirY
+        local rxe = posX + rayDirX * rayMult
+        local trueStepX = math.sqrt(trueDeltaY*trueDeltaY-1)
+        local halfStepX = rxe + (stepX*trueStepX)/2
+        if math.floor(halfStepX) == mapX then --and halfStepX > 0 then
+          hit = world[mapY][mapX]
+          sideDistY = sideDistY + 0.5
+        end
+      end
     elseif world[mapY][mapX] ~= 0x0 then
       hit = world[mapY][mapX]
     end
@@ -252,6 +281,18 @@ local function castRay(x, invertX, invertY, drawBuf)
   end
 
   return perpWallDist, hit, mapX, mapY
+end
+
+local function tickEnemy(sid, moveSpeed)
+  local spr = sprites[sid]
+  local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
+  
+  posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, dx, dy
+end
+
+local function tickProjectile(sid, moveSpeed)
+  local spr = sprites[sid]
+  
 end
 
 local ftavg = 0
