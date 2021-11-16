@@ -438,4 +438,3 @@ end
 
 term.setGraphicsMode(0)
 print("Average FPS: " .. 1/ftavg)
-print(dirX, dirY, planeX, planeY)
