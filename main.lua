@@ -1,5 +1,25 @@
 -- raycaster --
 
+local craftos_colors = {}
+for i=0, 15, 1 do
+  craftos_colors[i] = {term.getPaletteColor(2^i)}
+end
+
+for n=0, 255, 1 do
+  local cnt = false
+  for i=0, 15, 1 do
+    local r, g, b = term.getPaletteColor(2^i)
+    if r > 0 or g > 0 or b > 0 then
+      cnt = true
+    end
+    term.setPaletteColor(2^i, math.max(r - 0.01, 0),
+      math.max(g - 0.01, 0),
+      math.max(b - 0.01, 0))
+  end
+  if not cnt then break end
+  os.sleep(0.01)
+end
+
 local w, h = term.getSize(2)
 
 local COLL_FAR_LEFT = 0.4
@@ -129,6 +149,8 @@ term.setGraphicsMode(2)
 term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
+
+loadTexture(512, "projectile.tex")
 
 loadWorld("maps/map01.map", world, doors)
 
@@ -290,6 +312,8 @@ local function castRay(x, invertX, invertY, drawBuf)
   return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
 end
 
+local playerHP = 100
+
 local function tickEnemy(sid, moveSpeed)
   local spr = sprites[sid]
   local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
@@ -299,11 +323,20 @@ end
 
 local function tickProjectile(sid, moveSpeed)
   local spr = sprites[sid]
+  spr[4] = spr[4] or 0
+  spr[5] = spr[5] or 0
   spr[1] = spr[1] + moveSpeed * spr[4]
   spr[2] = spr[2] + moveSpeed * spr[5]
+  local ax, ay = math.floor(spr[1]), math.floor(spr[2])
+  if ax == math.floor(posX) and ay == math.floor(posY) and not spr[6] then
+    return true
+  end
 end
 
+-- main loop
 local ftavg = 0
+local lastUpdate = os.epoch("utc")
+local updateTarget = 50
 while true do
   local moveSpeed, rotSpeed
 
@@ -348,15 +381,17 @@ while true do
     local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
     local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
 
+    local dof = h / 2 + spriteHeight / 2
+    local sof = (-spriteWidth / 2 + spriteScreenX)
+    local twdsw = texWidth / spriteWidth
     for stripe = math.floor(drawStartX), drawEndX, 1 do
-      local texX = math.floor((stripe - (-spriteWidth / 2 + spriteScreenX)) *
-        texWidth / spriteWidth) % 64
+      local texX = math.floor((stripe - sof) * twdsw) % 64
 
       if transformY > 0 and stripe > 0 and stripe < w
           and transformY < zBuf[stripe] then
         for y = math.ceil(drawStartY), drawEndY, 1 do
-          local d = y - h / 2 + spriteHeight / 2
-          local texY = math.floor(((d * texHeight) / spriteHeight) % 64)
+          local d = y - dof
+          local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
           local color = textures[s[3]][texWidth * texY + texX]
           if color ~= 0 then
             drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
@@ -373,8 +408,8 @@ while true do
   local frametime = (time - oldTime) / 1000
   ftavg = (ftavg + frametime) / (ftavg == 0 and 1 or 2)
   local fps = 1 / ftavg
-  moveSpeed = frametime * 7
-  rotSpeed = frametime * 3
+  moveSpeed = math.max(updateTarget/1000, frametime) * 7
+  rotSpeed = math.max(updateTarget/1000, frametime) * 3
 
   -- input handling
   if not lastTimerID then
@@ -386,73 +421,130 @@ while true do
     lastTimerID = nil
   elseif sig == "key" and not rep then
     pressed[code] = true
+    if code == keys.z then
+      sprites[#sprites+1] = {posX, posY, 512, dirX, dirY, true}
+    end
   elseif sig == "key_up" then
     pressed[code] = false
   end
   
-  if pressed[keys.up] or pressed[keys.w] then
-    local nposX = posX + dirX * moveSpeed
-    local nposY = posY + dirY * moveSpeed
-    -- [[
-    local dist = math.min((castRay(math.floor(w * 0.5))),
-      (castRay(math.floor(w * COLL_FAR_LEFT))),
-      (castRay(math.floor(w * COLL_FAR_RIGHT))))
-    if dist > 0.8 then
-      posX, posY = nposX, nposY end--]]
-  end
-  if pressed[keys.down] or pressed[keys.s] then
-    local nposX = posX - dirX * moveSpeed
-    local nposY = posY - dirY * moveSpeed
-    -- [[
-    local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
-      (castRay(math.floor(w * COLL_FAR_LEFT), true, true)),
-      (castRay(math.floor(w * COLL_FAR_RIGHT), true, true)))
-    if dist > 0.8 then
-      posX, posY = nposX, nposY end--]]
-  end
-  if pressed[keys.right] or pressed[keys.d] then
-    local oldDirX = dirX
-    dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
-    dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
-    local oldPlaneX = planeX
-    planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
-    planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
-  end
-  if pressed[keys.left] or pressed[keys.a] then
-    local oldDirX = dirX
-    dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
-    dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
-    local oldPlaneX = planeX
-    planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
-    planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
-  end
-  if pressed[keys.space] then
-    local dist, tile, mx, my = castRay(math.floor(w * 0.5))
-    if dist < 2 and doors[my] and doors[my][mx] then
-      interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
+  if os.epoch("utc") - lastUpdate >= updateTarget - 5 then
+    lastUpdate = os.epoch("utc")
+    if pressed[keys.up] or pressed[keys.w] then
+      local nposX = posX + dirX * moveSpeed
+      local nposY = posY + dirY * moveSpeed
+      -- [[
+      local dist = math.min((castRay(math.floor(w * 0.5))),
+        (castRay(math.floor(w * COLL_FAR_LEFT))),
+        (castRay(math.floor(w * COLL_FAR_RIGHT))))
+      if dist > 0.8 then
+        posX, posY = nposX, nposY end--]]
     end
-  end
-  for i=#interpDoors, 1, -1 do
-    local y, x = table.unpack(interpDoors[i])
-    if os.epoch("utc") - interpDoors[i][3] >= 5000 then
-      if doors[y][x][1] <= 0 then
-        if doors[y][x][3] and doors[y][x][2] > 0 then
-          doors[y][x][2] = doors[y][x][2] - 0.05 * moveSpeed
-        else
-          doors[y][x][1] = 0
-          table.remove(interpDoors, i)
-        end
-      else
-        doors[y][x][1] = doors[y][x][1] - 0.05 * moveSpeed
+    if pressed[keys.down] or pressed[keys.s] then
+      local nposX = posX - dirX * moveSpeed
+      local nposY = posY - dirY * moveSpeed
+      -- [[
+      local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
+        (castRay(math.floor(w * COLL_FAR_LEFT), true, true)),
+        (castRay(math.floor(w * COLL_FAR_RIGHT), true, true)))
+      if dist > 0.8 then
+        posX, posY = nposX, nposY end--]]
+    end
+    if pressed[keys.right] or pressed[keys.d] then
+      local oldDirX = dirX
+      dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
+      dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
+      local oldPlaneX = planeX
+      planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
+      planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
+    end
+    if pressed[keys.left] or pressed[keys.a] then
+      local oldDirX = dirX
+      dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
+      dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
+      local oldPlaneX = planeX
+      planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
+      planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
+    end
+    if pressed[keys.space] then
+      local dist, tile, mx, my = castRay(math.floor(w * 0.5))
+      if dist < 2 and doors[my] and doors[my][mx] then
+        interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
       end
-    elseif doors[y][x][2] < 0.5 then
-      doors[y][x][3] = true
-      doors[y][x][2] = doors[y][x][2] + 0.05 * moveSpeed
-    elseif doors[y][x][1] < 1 then
-      doors[y][x][1] = doors[y][x][1] + 0.05 * moveSpeed
     end
+
+    -- update doors
+    for i=#interpDoors, 1, -1 do
+      local y, x = table.unpack(interpDoors[i])
+      if os.epoch("utc") - interpDoors[i][3] >= 5000 then
+        if doors[y][x][1] <= 0 then
+          if doors[y][x][3] and doors[y][x][2] > 0 then
+            doors[y][x][2] = doors[y][x][2] - 0.05 * moveSpeed
+          else
+            doors[y][x][1] = 0
+            table.remove(interpDoors, i)
+          end
+        else
+          doors[y][x][1] = doors[y][x][1] - 0.05 * moveSpeed
+        end
+      elseif doors[y][x][2] < 0.5 then
+        doors[y][x][3] = true
+        doors[y][x][2] = doors[y][x][2] + 0.05 * moveSpeed
+      elseif doors[y][x][1] < 1 then
+        doors[y][x][1] = doors[y][x][1] + 0.05 * moveSpeed
+      end
+    end
+
+    local exit
+    -- update projectiles
+    for i=1, #sprites, 1 do
+      if sprites[i][3] == 512 then
+        exit = tickProjectile(i, moveSpeed*1.5)
+        if exit then break end
+      end
+    end
+
+    -- update enemies
+    for i=1, #sprites, 1 do
+      if texids[sprites[i][3]] == "enemy" then
+        tickEnemy(i, moveSpeed)
+      end
+    end
+
+    if exit then break end
   end
+end
+
+for i=0, 255, 1 do
+  for i=0, 255, 1 do
+    local r, g, b = term.getPaletteColor(i)
+    r = math.max(0, r - 0.01)
+    g = math.max(0, g - 0.01)
+    b = math.max(0, b - 0.01)
+    term.setPaletteColor(i, r, g, b)
+  end
+  os.sleep(0.01)
 end
 
 term.setGraphicsMode(0)
 print("Average FPS: " .. 1/ftavg)
+
+for i=0, 15, 1 do
+  term.setPaletteColor(2^i, 0)
+end
+
+for n=0, 255, 1 do
+  local cnt = false
+  for i=0, 15, 1 do
+    local r, g, b = term.getPaletteColor(2^i)
+    if r ~= craftos_colors[i][1] or g ~= craftos_colors[i][2]
+        or b ~= craftos_colors[i][3] then
+      cnt = true
+    end
+    term.setPaletteColor(2^i, math.min(r + 0.01, craftos_colors[i][1]),
+      math.min(g + 0.01, craftos_colors[i][2]),
+      math.min(b + 0.01, craftos_colors[i][3]))
+  end
+  if not cnt then break end
+  os.sleep(0.01)
+end
