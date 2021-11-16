@@ -184,6 +184,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     sideDistY = (mapY + 1 - posY) * deltaDistY
   end
 
+  local pmX, pmY
   while not hit do
     if sideDistX < sideDistY then
       sideDistX = sideDistX + deltaDistX
@@ -194,6 +195,7 @@ local function castRay(x, invertX, invertY, drawBuf)
       mapY = mapY + stepY
       side = 1
     end
+    pmX, pmY = mapX, mapY
     if not (world[mapY] and world[mapY][mapX]) then
       hit = 0x0
     elseif doors[mapY] and doors[mapY][mapX] and (world[mapY]
@@ -213,7 +215,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         local halfStepY = rye + (stepY*trueStepY)/2
         if math.floor(halfStepY) == mapY then-- and halfStepY > 0 then
           hit = world[mapY][mapX]
-          sideDistX = sideDistX + 0.5
+          pmX = pmX + stepX/2
         end
       else
         local rayMult = (mapY2 - posY)/rayDirY
@@ -222,7 +224,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         local halfStepX = rxe + (stepX*trueStepX)/2
         if math.floor(halfStepX) == mapX then --and halfStepX > 0 then
           hit = world[mapY][mapX]
-          sideDistY = sideDistY + 0.5
+          pmY = pmY + stepY/2
         end
       end
     elseif world[mapY][mapX] ~= 0x0 then
@@ -230,8 +232,14 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  if side == 0 then perpWallDist = sideDistX - deltaDistX
-  else perpWallDist = sideDistY - deltaDistY end
+  
+  --if side == 0 then perpWallDist = sideDistX - deltaDistX
+  --else perpWallDist = sideDistY - deltaDistY end
+  if side == 0 then
+    perpWallDist = (pmX - posX + (1 - stepX) / 2) / rayDirX
+  else
+    perpWallDist = (pmY - posY + (1 - stepY) / 2) / rayDirY
+  end
 
   if drawBuf then
     local lineHeight = math.floor(h / perpWallDist * 1.1)
@@ -280,7 +288,7 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  return perpWallDist, hit, mapX, mapY
+  return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
 end
 
 local function tickEnemy(sid, moveSpeed)
