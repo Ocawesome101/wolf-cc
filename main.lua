@@ -5,7 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
---[[ fade to black ]=]
+--[=[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -114,12 +114,12 @@ h = h - HUD_HEIGHT
 -- weapons[NAME] = {
 -- collected (true/false)
 -- fire rate (delay between each shot in milliseconds)
--- projectile type (0=fireball, 1=hidden)
+-- projectile type (1=fireball, 0=hidden)
 -- projectile speed (0.5 .. 1.5)
 -- projectile damage (1..100)
 -- }
 local weapons = {
-  PISTOL = {true, 2000, 1, 1, 10}
+  PISTOL = {true, 2000, 0, 1, 10}
 }
 
 local worlds = {
@@ -520,7 +520,7 @@ local function tickEnemy(sid, moveSpeed)
       local angle = math.atan(b / a)
       local dX, dY = 2 * math.sin(math.rad(angle)) / 2,
         2 * math.cos(math.rad(angle)) / 2
-      table.insert(sprites, {spr[1], spr[2], 512, dX*a/math.abs(a), dY*b/math.abs(b)})
+      table.insert(sprites, {spr[1], spr[2], 512, dX*a/math.abs(a), dY*b/math.abs(b), [7] = math.random(10, 30)})
     end
   else
     spr[1] = lerp(spr[10], spr[8], 200, os.epoch("utc")-spr[6])
@@ -538,7 +538,7 @@ local function tickProjectile(sid, moveSpeed, stab)
   spr[5] = spr[5] or 0
   spr[1] = spr[1] + moveSpeed * spr[4]
   spr[2] = spr[2] + moveSpeed * spr[5]
-  spr[7] = spr[7] or weapons[WEAPON][4] or 30
+  spr[7] = spr[7] or weapons[WEAPON][5] or 30
   local ax, ay = math.floor(spr[1]), math.floor(spr[2])
   if ax == math.floor(posX) and ay == math.floor(posY) and not spr[6] then
     playerHealth = playerHealth - spr[7]
@@ -587,45 +587,47 @@ while true do
       + (posY - s[2]) * (posY - s[2]))
   end
   table.sort(spriteOrder, function(a,b)
-    return spriteDistance[a] > spriteDistance[b]
+    return (spriteDistance[a] or 0) > (spriteDistance[b] or 0)
   end)
 
   for i=1, #spriteOrder, 1 do
     local s = sprites[spriteOrder[i]]
-    local spriteX = s[1] - posX
-    local spriteY = s[2] - posY
-
-    local invDet = 1 / (planeX * dirY - dirX * planeY)
-
-    local transformX = invDet * (dirY * spriteX - dirX * spriteY)
-    local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
-
-    local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
-
-    local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
-
-    local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
-    local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
-
-    local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
-    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
-    local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
-
-    local dof = h / 2 + spriteHeight / 2
-    local sof = (-spriteWidth / 2 + spriteScreenX)
-    local twdsw = texWidth / spriteWidth
-    for stripe = math.floor(drawStartX), drawEndX, 1 do
-      local texX = math.floor((stripe - sof) * twdsw) % 64
-
-      if transformY > 0 and stripe > 0 and stripe < w
-          and transformY < zBuf[stripe] then
-        for y = math.ceil(drawStartY), drawEndY, 1 do
-          local d = y - dof
-          local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-          local color = textures[s[3]][texWidth * texY + texX]
-          if color ~= 0 then
-            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
-              string.char(color) .. drawBuf[y]:sub(stripe+2)
+    if s[3] ~= 0 then
+      local spriteX = s[1] - posX
+      local spriteY = s[2] - posY
+  
+      local invDet = 1 / (planeX * dirY - dirX * planeY)
+  
+      local transformX = invDet * (dirY * spriteX - dirX * spriteY)
+      local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+  
+      local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
+  
+      local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
+  
+      local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
+      local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
+  
+      local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
+      local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+      local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
+  
+      local dof = h / 2 + spriteHeight / 2
+      local sof = (-spriteWidth / 2 + spriteScreenX)
+      local twdsw = texWidth / spriteWidth
+      for stripe = math.floor(drawStartX), drawEndX, 1 do
+        local texX = math.floor((stripe - sof) * twdsw) % 64
+  
+        if transformY > 0 and stripe > 0 and stripe < w
+            and transformY < zBuf[stripe] then
+          for y = math.ceil(drawStartY), drawEndY, 1 do
+            local d = y - dof
+            local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
+            local color = textures[s[3]][texWidth * texY + texX]
+            if color ~= 0 then
+              drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
+                string.char(color) .. drawBuf[y]:sub(stripe+2)
+            end
           end
         end
       end
@@ -652,7 +654,8 @@ while true do
   elseif sig == "key" and not rep then
     pressed[code] = true
     if code == keys.z then
-      sprites[#sprites+1] = {posX, posY, 512, dirX, dirY, true}
+      sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
+        dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
     end
   elseif sig == "key_up" then
     pressed[code] = false
