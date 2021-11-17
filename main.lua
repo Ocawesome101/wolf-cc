@@ -761,7 +761,7 @@ while true do
   if os.epoch("utc") - lastUpdate >= updateTarget - 5 then
     lastUpdate = os.epoch("utc")
     -- bang bang shoot shoot bullet bullet gun
-    if pressed[keys.z] then
+    if pressed[keys.leftCtrl] or pressed[keys.rightCtrl] then
       if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
         nextShot = os.epoch("utc") + weapons[WEAPON][2]
         ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
@@ -769,6 +769,12 @@ while true do
           dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
         generateHUD()
       end
+    end
+
+    -- reduce movement speed slightly when strafing
+    if (pressed[keys.up] or pressed[keys.w] or pressed[keys.s] or
+       pressed[keys.down]) and (pressed[keys.a] or pressed[keys.d]) then
+      moveSpeed = moveSpeed * 0.75
     end
 
     -- forward/backward movement
@@ -792,8 +798,8 @@ while true do
       if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
         posX = nposX
       end
-      --]]
     end
+
     if pressed[keys.down] or pressed[keys.s] then
       local nposX = posX - dirX * moveSpeed
       local nposY = posY - dirY * moveSpeed
@@ -815,6 +821,7 @@ while true do
         posX = nposX
       end
     end
+
     -- strafing
     if pressed[keys.a] then
       local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
