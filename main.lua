@@ -5,7 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
--- fade to black
+--[=[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -20,11 +20,118 @@ for n=0, 255, 1 do
   if not cnt then break end
   os.sleep(0.01)
 end
+--]]
 
 local w, h = term.getSize(2)
 
+-- heads-up display: currently just health
+local numbers = {
+  [0] = {
+    "\3\4\4\3\3",
+    "\4\3\3\4\3",
+    "\4\3\3\4\3",
+    "\4\3\3\4\3",
+    "\3\4\4\3\3"
+  }, {
+    "\3\3\4\3\3",
+    "\3\3\4\3\3",
+    "\3\3\4\3\3",
+    "\3\3\4\3\3",
+    "\3\3\4\3\3",
+  }, {
+    "\4\4\4\3\3",
+    "\3\3\3\4\3",
+    "\3\3\4\3\3",
+    "\3\4\3\3\3",
+    "\4\4\4\4\3",
+  }, {
+    "\4\4\4\3\3",
+    "\3\3\3\4\3",
+    "\3\4\4\3\3",
+    "\3\3\3\4\3",
+    "\4\4\4\3\3",
+  }, {
+    "\4\3\4\3\3",
+    "\4\3\4\3\3",
+    "\4\4\4\4\3",
+    "\3\3\4\3\3",
+    "\3\3\4\3\3",
+  }, {
+    "\4\4\4\4\3",
+    "\4\3\3\3\3",
+    "\4\4\4\3\3",
+    "\3\3\3\4\3",
+    "\4\4\4\3\3",
+  }, {
+    "\3\4\4\4\3",
+    "\4\3\3\3\3",
+    "\4\4\4\3\3",
+    "\4\3\3\4\3",
+    "\3\4\4\25\3",
+  }, {
+    "\4\4\4\4\3",
+    "\3\3\3\4\3",
+    "\3\3\4\3\3",
+    "\3\4\3\3\3",
+    "\4\3\3\3\3",
+  }, {
+    "\3\4\4\3\3",
+    "\4\3\3\4\3",
+    "\3\4\4\3\3",
+    "\4\3\3\4\3",
+    "\3\4\4\3\3",
+  }, {
+    "\3\4\4\3\3",
+    "\4\3\3\4\3",
+    "\3\4\4\4\3",
+    "\3\3\3\4\3",
+    "\4\4\4\3\3",
+  }
+}
+
+local hud = {}
+
 local COLL_FAR_LEFT = 0.4
 local COLL_FAR_RIGHT = 0.6
+local HUD_HEIGHT = 20
+local WEAPON = "PISTOL"
+
+local playerHealth = 100
+
+h = h - HUD_HEIGHT
+
+-- weapons[NAME] = {
+-- collected (true/false)
+-- fire rate (delay between each shot in milliseconds)
+-- projectile type (fireball, hidden)
+-- projectile speed (0.5 .. 1.5)
+-- projectile damage (1..100)
+-- }
+local weapons = {
+  PISTOL = {true, 0.5, }
+}
+
+local function generateHUD()
+  for i=0, HUD_HEIGHT, 1 do
+    hud[i] = string.rep("\3", w)
+  end
+  local n = tostring(math.max(0,playerHealth))
+  local i = 0
+  for c in n:gmatch(".") do
+    local char = numbers[tonumber(c)]
+    local offset = i * 10
+    for n=1,5,1 do
+      local row = char[n]:gsub("(.)","%1%1")
+      if playerHealth < 25 then
+        row = row:gsub("\4", "\5")
+      end
+      hud[n*2] = hud[n*2]:sub(0,5+offset)..row..hud[n*2]:sub(15+offset)
+    end
+    i=i+1
+  end
+  term.drawPixels(0, h+1, hud)
+end
+generateHUD()
 
 local textures = {}
 local texids = {}
@@ -94,7 +201,7 @@ end
 -- 1 byte: color ID
 -- 3 bytes: RGB value
 -- then raw texture data
-local lastSetPal = 2
+local lastSetPal = 5
 loadTexture = function(id, file)
   textures[id] = {}
   local tex = textures[id]
@@ -150,6 +257,9 @@ term.setGraphicsMode(2)
 term.setPaletteColor(0, 0x000000)
 term.setPaletteColor(floorColor, 0x707070)
 term.setPaletteColor(ceilColor, 0x383838)
+term.setPaletteColor(3, 0x003366) -- HUD color
+term.setPaletteColor(4, 0xFFFFFF)
+term.setPaletteColor(5, 0xFF0000)
 
 loadTexture(512, "projectile.tex")
 
@@ -313,56 +423,63 @@ local function castRay(x, invertX, invertY, drawBuf)
   return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
 end
 
-local playerHP = 100
-
 local function tickEnemy(sid, moveSpeed)
+-- [[
   local spr = sprites[sid]
-  local px, py = spr[1], spr[2]
   local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
-  local playerDistX, playerDistY = math.abs(posX - px), math.abs(posY - py)
-  if playerDistX < 15 and playerDistY < 15 then
-    posX = px
-    posY = py
-    local a, b = playerDistX, playerDistY
-    local c = math.sqrt(a*a + b*b)
-    local angle = math.asin(a / c)
-    dirX = 
-    dirY = 
-    local doesHit, dist = castRay()
-    -- chance per tick that the player is hit
-    local hit = math.random(-1000, 5)
-    if hit > 0 then
-      playerHealth = playerHeakth - hit
+  spr[4] = spr[4] or 1
+  spr[5] = spr[5] or 1
+  spr[6] = spr[6] or os.epoch("utc")
+  spr[7] = spr[7] or spr[6]
+  if os.epoch("utc") - spr[6] > 200 then
+    spr[6] = os.epoch("utc")
+    local np1 = spr[1] + moveSpeed * spr[4]
+    local np2 = spr[2] + moveSpeed * spr[5]
+    local px, py = math.floor(np1), math.floor(np2)
+  
+    if world[py] and world[py][px] ~= 0 then
+      spr[4] = math.random(-10, 10) / 10
+      spr[5] = math.random(-10, 10) / 10
+    else
+      spr[1] = np1
+      spr[2] = np2
+    end
+    if os.epoch("utc") - spr[7] > 1000 then
+      spr[7] = os.epoch("utc")
+      local a, b = posX - spr[1], posY - spr[2]
+      local angle = math.atan(b / a)
+      local dX, dY = 2 * math.sin(math.rad(angle)) / 2,
+        2 * math.cos(math.rad(angle)) / 2
+      table.insert(sprites, {spr[1], spr[2], 512, dX*a/math.abs(a), dY*b/math.abs(b)})
     end
   end
-  if playerDistX > 8 and playerDistY > 8 then
-    -- move toward player
-    local signX, singY = 1
-    if opx > px then signX = -1 end
-    if opy > py then signY = -1 end
-    spr[1] = px + signX * moveSpeed
-    spr[2] = py + signY * moveSpeed
-  end
-  posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, dx, dy
+  
+  posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, odx, ody
+--]]
 end
 
-local function tickProjectile(sid, moveSpeed)
-  local spr = sprites[sid]
+local function tickProjectile(sid, moveSpeed, stab)
+  stab = stab or sprites
+  local spr = stab[sid]
   spr[4] = spr[4] or 0
   spr[5] = spr[5] or 0
   spr[1] = spr[1] + moveSpeed * spr[4]
   spr[2] = spr[2] + moveSpeed * spr[5]
+  spr[7] = spr[7] or weapons[WEAPON][4] or 30
   local ax, ay = math.floor(spr[1]), math.floor(spr[2])
   if ax == math.floor(posX) and ay == math.floor(posY) and not spr[6] then
-    return true
+    playerHealth = playerHealth - spr[7]
+    generateHUD()
+    table.remove(stab, sid)
+    return playerHealth <= 0
   elseif world[ay] and world[ay][ax] ~= 0 then
-    table.remove(sprites, sid)
-  else
+    table.remove(stab, sid)
+  elseif spr[6] then
     for i=1, #sprites, 1 do
       if sprites[i] and i ~= sid then
-        local sx, sy = math.floor(sprites[i][1], math.floor(sprites[i][2]))
+        local sx, sy = math.floor(sprites[i][1]), math.floor(sprites[i][2])
         if ax == sx and ay == sy then
-          table.remove(sprites, i)
+          table.remove(stab, i)
         end
       end
     end
@@ -515,19 +632,19 @@ while true do
       if os.epoch("utc") - interpDoors[i][3] >= 5000 then
         if doors[y][x][1] <= 0 then
           if doors[y][x][3] and doors[y][x][2] > 0 then
-            doors[y][x][2] = doors[y][x][2] - 0.05 * moveSpeed
+            doors[y][x][2] = doors[y][x][2] - 0.1 * moveSpeed
           else
             doors[y][x][1] = 0
             table.remove(interpDoors, i)
           end
         else
-          doors[y][x][1] = doors[y][x][1] - 0.05 * moveSpeed
+          doors[y][x][1] = doors[y][x][1] - 0.1 * moveSpeed
         end
       elseif doors[y][x][2] < 0.5 then
         doors[y][x][3] = true
-        doors[y][x][2] = doors[y][x][2] + 0.05 * moveSpeed
+        doors[y][x][2] = doors[y][x][2] + 0.1 * moveSpeed
       elseif doors[y][x][1] < 1 then
-        doors[y][x][1] = doors[y][x][1] + 0.05 * moveSpeed
+        doors[y][x][1] = doors[y][x][1] + 0.1 * moveSpeed
       end
     end
 
@@ -535,8 +652,9 @@ while true do
     -- update projectiles
     for i=1, #sprites, 1 do
       if sprites[i] and sprites[i][3] == 512 then
-        exit = tickProjectile(i, moveSpeed*1.5)
-        if exit then break end
+        tickProjectile(i, moveSpeed*1.5)
+      elseif sprites[i] and sprites[i][3] == 0 then -- hidden projectile
+        tickProjectile(i, moveSpeed*1.5)
       end
     end
 
@@ -547,7 +665,7 @@ while true do
       end
     end
 
-    if exit then break end
+    if playerHealth < 0 then break end
   end
 end
 
@@ -569,6 +687,9 @@ end
 term.setGraphicsMode(0)
 term.clear()
 term.setCursorPos(1,1)
+if playerHealth <= 0 then
+  printError("You Died!")
+end
 print("Average FPS: " .. 1/ftavg)
 print("Thank you for playing.")
 
