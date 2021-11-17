@@ -424,7 +424,7 @@ local function castRay(x, invertX, invertY, drawBuf)
 end
 
 local function lerp(b, e, d, t)
-  return b + (e-b) * (t/d)
+  return b + (e-b) * (math.min(d,t)/d)
 end
 
 local function tickEnemy(sid, moveSpeed)
@@ -491,7 +491,7 @@ local function tickProjectile(sid, moveSpeed, stab)
     for i=1, #sprites, 1 do
       if sprites[i] and i ~= sid then
         local sx, sy = math.floor(sprites[i][1]), math.floor(sprites[i][2])
-        if ax == sx and ay == sy then
+        if ax == sx and ay == sy and texids[sprites[i][3]] == "enemy" then
           table.remove(stab, i)
         end
       end
