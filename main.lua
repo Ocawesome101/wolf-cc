@@ -5,7 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
---[=[ fade to black ]=]
+--[[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -89,6 +89,16 @@ local numbers = {
   }
 }
 
+local weaponsText = {
+  PISTOL = {
+    "\4\4\4\3\4\4\4\3\3\4\4\3\4\4\4\3\3\4\4\3\3\4\3\3",
+    "\4\3\4\3\3\4\3\3\4\3\3\3\3\4\3\3\4\3\3\4\3\4\3\3",
+    "\4\4\4\3\3\4\3\3\3\4\3\3\3\4\3\3\4\3\3\4\3\4\3\3",
+    "\4\3\3\3\3\4\3\3\3\3\4\3\3\4\3\3\4\3\3\4\3\4\3\3",
+    "\4\3\3\3\4\4\4\3\4\4\3\3\3\4\3\3\3\4\4\3\3\4\4\4",
+  },
+}
+
 local hud = {}
 
 local COLL_FAR_LEFT = 0.4
@@ -104,12 +114,12 @@ h = h - HUD_HEIGHT
 -- weapons[NAME] = {
 -- collected (true/false)
 -- fire rate (delay between each shot in milliseconds)
--- projectile type (fireball, hidden)
+-- projectile type (0=fireball, 1=hidden)
 -- projectile speed (0.5 .. 1.5)
 -- projectile damage (1..100)
 -- }
 local weapons = {
-  PISTOL = {true, 0.5, }
+  PISTOL = {true, 2000, 1, 1, 10}
 }
 
 local worlds = {
@@ -133,6 +143,11 @@ local function generateHUD()
       hud[n*2] = hud[n*2]:sub(0,5+offset)..row..hud[n*2]:sub(15+offset)
     end
     i=i+1
+  end
+  i=i+3
+  for n=1, 5, 1 do
+    local row = weaponsText[WEAPON][n]:gsub("(.)","%1%1")
+    hud[n*2]=hud[n*2]:sub(0,5+i*10)..row..hud[n*2]:sub(#row+5+i*10)
   end
   term.drawPixels(0, h+1, hud)
 end
@@ -483,6 +498,7 @@ local function tickEnemy(sid, moveSpeed)
   spr[9] = spr[9] or spr[2]
   spr[10] = spr[10] or spr[1]
   spr[11] = spr[11] or spr[2]
+  spr.h = spr.h or 100
   if os.epoch("utc") - spr[6] > 200 then
     spr[6] = os.epoch("utc")
     local np1 = spr[1] + moveSpeed * spr[4]
@@ -532,11 +548,15 @@ local function tickProjectile(sid, moveSpeed, stab)
   elseif world[ay] and world[ay][ax] ~= 0 then
     table.remove(stab, sid)
   elseif spr[6] then
-    for i=1, #sprites, 1 do
-      if sprites[i] and i ~= sid then
-        local sx, sy = math.floor(sprites[i][1]), math.floor(sprites[i][2])
-        if ax == sx and ay == sy and texids[sprites[i][3]] == "enemy" then
-          table.remove(stab, i)
+    for i=1, #stab, 1 do
+      if stab[i] and i ~= sid then
+        local sx, sy = math.floor(stab[i][1]), math.floor(stab[i][2])
+        if ax == sx and ay == sy and texids[stab[i][3]] == "enemy" then
+          stab[i].h = stab[i].h - spr[7]
+          if stab[i].h <= 0 then
+            table.remove(stab, i)
+            table.remove(stab, sid)
+          end
         end
       end
     end
