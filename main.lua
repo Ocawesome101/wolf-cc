@@ -612,6 +612,10 @@ local function tickEnemy(sid, moveSpeed)
 --]]
 end
 
+local function doorIsOpen(x, y)
+  return doors[y] and doors[y][x] and doors[y][x][1] >= 0.4
+end
+
 local function tickProjectile(sid, moveSpeed, stab)
   stab = stab or sprites
   local spr = stab[sid]
@@ -626,7 +630,7 @@ local function tickProjectile(sid, moveSpeed, stab)
     generateHUD()
     table.remove(stab, sid)
     return playerHealth <= 0
-  elseif world[ay] and world[ay][ax] ~= 0 then
+  elseif world[ay] and world[ay][ax] ~= 0 and not doorIsOpen(ax, ay) then
     table.remove(stab, sid)
   elseif spr[6] then
     for i=1, #stab, 1 do
@@ -767,11 +771,21 @@ while true do
         posX, posY = nposX, nposY end--]]
       -- [[
       local oldX, oldY = posX, posY
-      if world[math.floor(oldY)][math.floor(nposX)] == 0 then
+      local offX, offY = 0.3, 0.3
+      if math.abs(dirX) ~= dirX then offX = -0.3 end
+      if math.abs(dirY) ~= dirY then offY = -0.3 end
+      local r_oY = math.floor(oldY+offY)
+      local r_oX = math.floor(oldX+offX)
+      local r_nY = math.floor(nposY+offY)
+      local r_nX = math.floor(nposX+offX)
+      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
         posX = nposX
       end
-      if world[math.floor(nposY)][math.floor(nposX)] == 0 then
+      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
         posY = nposY
+      end
+      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+        posX = nposX
       end
       --]]
     end
