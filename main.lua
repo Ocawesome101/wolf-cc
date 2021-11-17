@@ -91,12 +91,26 @@ local numbers = {
 
 local weaponsText = {
   PISTOL = {
-    "\4\4\4\3\4\4\4\3\3\4\4\3\4\4\4\3\3\4\4\3\3\4\3\3",
-    "\4\3\4\3\3\4\3\3\4\3\3\3\3\4\3\3\4\3\3\4\3\4\3\3",
-    "\4\4\4\3\3\4\3\3\3\4\3\3\3\4\3\3\4\3\3\4\3\4\3\3",
-    "\4\3\3\3\3\4\3\3\3\3\4\3\3\4\3\3\4\3\3\4\3\4\3\3",
-    "\4\3\3\3\4\4\4\3\4\4\3\3\3\4\3\3\3\4\4\3\3\4\4\4",
+    "### ###  ## ###  ##  #  ",
+    "# #  #  #    #  #  # #  ",
+    "###  #   #   #  #  # #  ",
+    "#    #    #  #  #  # #  ",
+    "#   ### ##   #   ##  ###",
   },
+  MINIGUN = {
+    "#   # ### #  # ###  ### #  # #  #",
+    "## ##  #  ## #  #  #    #  # ## #",
+    "# # #  #  # ##  #  # ## #  # # ##",
+    "#   #  #  #  #  #  #  # #  # #  #",
+    "#   # ### #  # ###  ##   ##  #  #"
+  },
+  ROCKET = {
+    "###  ##   ##  #  # ### ###",
+    "# # #  # #  # # #  #    # ",
+    "##  #  # #    ##   ###  # ",
+    "# # #  # #  # # #  #    # ",
+    "# #  ##   ##  #  # ###  # "
+  }
 }
 
 local hud = {}
@@ -117,9 +131,17 @@ h = h - HUD_HEIGHT
 -- projectile type (1=fireball, 0=hidden)
 -- projectile speed (0.5 .. 1.5)
 -- projectile damage (1..100)
+-- ammo type
 -- }
 local weapons = {
-  PISTOL = {true, 2000, 0, 1, 10}
+  sequence = {"PISTOL", "MINIGUN", "ROCKET"},
+  PISTOL = {true, 2000, 0, 1, 10, 1},
+  MINIGUN = {false, }
+}
+
+-- ammo counts
+local ammo = {
+  [1] = math.huge
 }
 
 local worlds = {
@@ -146,14 +168,17 @@ local function generateHUD()
   end
   i=i+3
   for n=1, 5, 1 do
-    local row = weaponsText[WEAPON][n]:gsub("(.)","%1%1")
+    local row = weaponsText[WEAPON][n]
+      :gsub("(.)","%1%1")
+      :gsub(" ","\3")
+      :gsub("#","\4")
     hud[n*2]=hud[n*2]:sub(0,5+i*10)..row..hud[n*2]:sub(#row+5+i*10)
   end
   term.drawPixels(0, h+1, hud)
 end
 generateHUD()
 
-local textures = {}
+local textures = {[0] = {4}}
 local texids = {}
 local texWidth, texHeight = 64, 64
 
@@ -592,42 +617,54 @@ while true do
 
   for i=1, #spriteOrder, 1 do
     local s = sprites[spriteOrder[i]]
+    local spriteX = s[1] - posX
+    local spriteY = s[2] - posY
+
+    local invDet = 1 / (planeX * dirY - dirX * planeY)
+
+    local transformX = invDet * (dirY * spriteX - dirX * spriteY)
+    local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+
+    local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
+    
+    local spriteHeight, spriteWidth
     if s[3] ~= 0 then
-      local spriteX = s[1] - posX
-      local spriteY = s[2] - posY
+      spriteHeight = math.abs(math.floor(h / transformY * 1.1))
+    else
+      spriteHeight = 1
+    end
   
-      local invDet = 1 / (planeX * dirY - dirX * planeY)
+    local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
+    local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
   
-      local transformX = invDet * (dirY * spriteX - dirX * spriteY)
-      local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+    local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
+    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+    local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
   
-      local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
-  
-      local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
-  
-      local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
-      local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
-  
-      local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
-      local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
-      local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
-  
-      local dof = h / 2 + spriteHeight / 2
-      local sof = (-spriteWidth / 2 + spriteScreenX)
-      local twdsw = texWidth / spriteWidth
-      for stripe = math.floor(drawStartX), drawEndX, 1 do
-        local texX = math.floor((stripe - sof) * twdsw) % 64
-  
-        if transformY > 0 and stripe > 0 and stripe < w
-            and transformY < zBuf[stripe] then
-          for y = math.ceil(drawStartY), drawEndY, 1 do
-            local d = y - dof
-            local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-            local color = textures[s[3]][texWidth * texY + texX]
-            if color ~= 0 then
-              drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
-                string.char(color) .. drawBuf[y]:sub(stripe+2)
-            end
+    local dof = h / 2 + spriteHeight / 2
+    local sof = (-spriteWidth / 2 + spriteScreenX)
+    local twdsw = texWidth / spriteWidth
+    for stripe = math.floor(drawStartX), drawEndX, 1 do
+      local texX = math.floor((stripe - sof) * twdsw) % 64
+
+      if transformY > 0 and stripe > 0 and stripe < w
+          and transformY < zBuf[stripe] then
+        for y = math.ceil(drawStartY), drawEndY, 1 do
+          local d = y - dof
+          local texY, texidx
+          if s[3] ~= 0 then
+            texY = math.floor(((d * texHeight) / spriteHeight)) % 64
+            texidx = texWidth * texY + texX
+          else
+            y = math.max(math.floor(h/2), h - (HUD_HEIGHT) -
+              math.floor(spriteDistance[spriteOrder[i]] % (h/2))*2)
+            texY = 1
+            texidx = 1
+          end
+          local color = textures[s[3]][texidx] or 0
+          if color ~= 0 then
+            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
+              string.char(color) .. drawBuf[y]:sub(stripe+2)
           end
         end
       end
@@ -773,6 +810,9 @@ for i=0, 255, 1 do
 end
 
 term.setGraphicsMode(0)
+for i=0, 15, 1 do
+  term.setPaletteColor(2^i, table.unpack(craftos_colors[i]))
+end
 term.clear()
 term.setCursorPos(1,1)
 if playerHealth <= 0 then
@@ -781,6 +821,3 @@ end
 print("Average FPS: " .. 1/ftavg)
 print("Thank you for playing.")
 
-for i=0, 15, 1 do
-  term.setPaletteColor(2^i, table.unpack(craftos_colors[i]))
-end
