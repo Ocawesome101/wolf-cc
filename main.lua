@@ -423,6 +423,10 @@ local function castRay(x, invertX, invertY, drawBuf)
   return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
 end
 
+local function lerp(b, e, d, t)
+  return b + (e-b) * (t/d)
+end
+
 local function tickEnemy(sid, moveSpeed)
 -- [[
   local spr = sprites[sid]
@@ -431,6 +435,10 @@ local function tickEnemy(sid, moveSpeed)
   spr[5] = spr[5] or 1
   spr[6] = spr[6] or os.epoch("utc")
   spr[7] = spr[7] or spr[6]
+  spr[8] = spr[8] or spr[1]
+  spr[9] = spr[9] or spr[2]
+  spr[10] = spr[10] or spr[1]
+  spr[11] = spr[11] or spr[2]
   if os.epoch("utc") - spr[6] > 200 then
     spr[6] = os.epoch("utc")
     local np1 = spr[1] + moveSpeed * spr[4]
@@ -441,8 +449,10 @@ local function tickEnemy(sid, moveSpeed)
       spr[4] = math.random(-10, 10) / 10
       spr[5] = math.random(-10, 10) / 10
     else
-      spr[1] = np1
-      spr[2] = np2
+      spr[10] = spr[1]
+      spr[11] = spr[2]
+      spr[8] = np1
+      spr[9] = np2
     end
     if os.epoch("utc") - spr[7] > 1000 then
       spr[7] = os.epoch("utc")
@@ -452,6 +462,9 @@ local function tickEnemy(sid, moveSpeed)
         2 * math.cos(math.rad(angle)) / 2
       table.insert(sprites, {spr[1], spr[2], 512, dX*a/math.abs(a), dY*b/math.abs(b)})
     end
+  else
+    spr[1] = lerp(spr[10], spr[8], 200, os.epoch("utc")-spr[6])
+    spr[2] = lerp(spr[11], spr[9], 200, os.epoch("utc")-spr[6])
   end
   
   posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, odx, ody
