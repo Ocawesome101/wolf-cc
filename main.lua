@@ -5,7 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
---[=[ fade to black ]=]
+--[[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -86,7 +86,28 @@ local numbers = {
     "\3\4\4\4\3",
     "\3\3\3\4\3",
     "\4\4\4\3\3",
-  }
+  },
+  i = {
+    "\3\4\3",
+    "\3\3\3",
+    "\3\4\3",
+    "\3\4\3",
+    "\3\4\3"
+  },
+  n = {
+    "\3\3\3",
+    "\3\3\3",
+    "\4\4\3",
+    "\4\3\4",
+    "\4\3\4"
+  },
+  f = {
+    "\3\3\4",
+    "\3\4\3",
+    "\4\4\4",
+    "\3\4\3",
+    "\3\4\3"
+  },
 }
 
 local weaponsText = {
@@ -128,20 +149,41 @@ h = h - HUD_HEIGHT
 -- weapons[NAME] = {
 -- collected (true/false)
 -- fire rate (delay between each shot in milliseconds)
--- projectile type (1=fireball, 0=hidden)
+-- projectile type (1=fireball, 0=bullet)
 -- projectile speed (0.5 .. 1.5)
--- projectile damage (1..100)
+-- maximum projectile damage (1..100)
 -- ammo type
 -- }
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
-  PISTOL = {true, 2000, 0, 1, 10, 1},
-  MINIGUN = {false, }
+  PISTOL = {true, 1000, 0, 1.2, 10, 1},
+  MINIGUN = {false, 100, 0, 0.8, 3, 2},
+  ROCKET = {false, 2000, 1, 0.5, 40, 3}
 }
 
 -- ammo counts
 local ammo = {
-  [1] = math.huge
+  [1] = math.huge,
+  [2] = 0,
+  [3] = 0
+}
+
+local items
+items = {
+  ammobasic = function()
+    ammo[2] = ammo[2] + 100
+  end,
+  ammorocket = function()
+    ammo[3] = ammo[3] + 3
+  end,
+  itemminigun = function()
+    items.ammobasic()
+    weapons.MINIGUN[1] = true
+  end,
+  itemrocket = function()
+    items.ammorocket()
+    weapons.ROCKET[1] = true
+  end
 }
 
 local worlds = {
@@ -173,6 +215,21 @@ local function generateHUD()
       :gsub(" ","\3")
       :gsub("#","\4")
     hud[n*2]=hud[n*2]:sub(0,5+i*10)..row..hud[n*2]:sub(#row+5+i*10)
+  end
+  i=i+10
+  n = math.max(0, ammo[weapons[WEAPON][6]])
+  if n == math.huge then n = "inf" else n = tostring(n) end
+  for c in n:gmatch(".") do
+    local char = numbers[tonumber(c) or c]
+    local offset = i * 10
+    for n = 1, 5, 1 do
+      local row = char[n]:gsub("(.)", "%1%1")
+      if ammo[weapons[WEAPON][6]] < 2 then
+        row = row:gsub("\4", "\5")
+      end
+      hud[n*2] = hud[n*2]:sub(0, 5+offset)..row..hud[n*2]:sub(15+offset)
+    end
+    i=i+1
   end
   term.drawPixels(0, h+1, hud)
 end
@@ -273,10 +330,8 @@ loadTexture = function(id, file)
       end
     end
     if not palConv[colID] then
-      lastSetPal = lastSetPal + 1--2
+      lastSetPal = lastSetPal + 1
       assert(lastSetPal < 256, "too many texture colors!")
-      --term.setPaletteColor(lastSetPal - 1,
-      --  bit32.band(bit32.rshift(rgb, 1), 8355711))
       term.setPaletteColor(lastSetPal, rgb)
       palConv[colID] = lastSetPal
     end
@@ -465,7 +520,8 @@ local function castRay(x, invertX, invertY, drawBuf)
     end
   end
 
-  return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
+  return perpWallDist, hit, math.floor(mapX), math.floor(mapY), sideDistX,
+    sideDistY
 end
 
 local paletteCache = {}
@@ -592,6 +648,7 @@ end
 local ftavg = 0
 local lastUpdate = os.epoch("utc")
 local updateTarget = 50
+local nextShot = 0
 while true do
   local moveSpeed, rotSpeed
 
@@ -617,54 +674,43 @@ while true do
 
   for i=1, #spriteOrder, 1 do
     local s = sprites[spriteOrder[i]]
-    local spriteX = s[1] - posX
-    local spriteY = s[2] - posY
-
-    local invDet = 1 / (planeX * dirY - dirX * planeY)
-
-    local transformX = invDet * (dirY * spriteX - dirX * spriteY)
-    local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
-
-    local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
-    
-    local spriteHeight, spriteWidth
     if s[3] ~= 0 then
-      spriteHeight = math.abs(math.floor(h / transformY * 1.1))
-    else
-      spriteHeight = 1
-    end
+      local spriteX = s[1] - posX
+      local spriteY = s[2] - posY
   
-    local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
-    local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
+      local invDet = 1 / (planeX * dirY - dirX * planeY)
   
-    local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
-    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
-    local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
-  
-    local dof = h / 2 + spriteHeight / 2
-    local sof = (-spriteWidth / 2 + spriteScreenX)
-    local twdsw = texWidth / spriteWidth
-    for stripe = math.floor(drawStartX), drawEndX, 1 do
-      local texX = math.floor((stripe - sof) * twdsw) % 64
+      local transformX = invDet * (dirY * spriteX - dirX * spriteY)
+      local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
 
-      if transformY > 0 and stripe > 0 and stripe < w
-          and transformY < zBuf[stripe] then
-        for y = math.ceil(drawStartY), drawEndY, 1 do
-          local d = y - dof
-          local texY, texidx
-          if s[3] ~= 0 then
-            texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-            texidx = texWidth * texY + texX
-          else
-            y = math.max(math.floor(h/2), h - (HUD_HEIGHT) -
-              math.floor(spriteDistance[spriteOrder[i]] % (h/2))*2)
-            texY = 1
-            texidx = 1
-          end
-          local color = textures[s[3]][texidx] or 0
-          if color ~= 0 then
-            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
-              string.char(color) .. drawBuf[y]:sub(stripe+2)
+      local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
+    
+      local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
+  
+      local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
+      local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
+    
+      local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
+      local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+      local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
+    
+      local dof = h / 2 + spriteHeight / 2
+      local sof = (-spriteWidth / 2 + spriteScreenX)
+      local twdsw = texWidth / spriteWidth
+      for stripe = math.floor(drawStartX), drawEndX, 1 do
+        local texX = math.floor((stripe - sof) * twdsw) % 64
+  
+        if transformY > 0 and stripe > 0 and stripe < w
+            and transformY < zBuf[stripe] then
+          for y = math.ceil(drawStartY), drawEndY, 1 do
+            local d = y - dof
+            local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
+            local texidx = texWidth * texY + texX
+            local color = textures[s[3]][texidx] or 0
+            if color ~= 0 then
+              drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
+                string.char(color) .. drawBuf[y]:sub(stripe+2)
+            end
           end
         end
       end
@@ -690,9 +736,19 @@ while true do
     lastTimerID = nil
   elseif sig == "key" and not rep then
     pressed[code] = true
-    if code == keys.z then
-      sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
-        dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
+    if code == keys.one then
+      WEAPON = weapons.sequence[1]
+      generateHUD()
+    elseif code == keys.two then
+      if weapons[weapons.sequence[2]][1] then
+        WEAPON = weapons.sequence[2]
+      end
+      generateHUD()
+    elseif code == keys.three then
+      if weapons[weapons.sequence[3]][1] then
+        WEAPON = weapons.sequence[3]
+      end
+      generateHUD()
     end
   elseif sig == "key_up" then
     pressed[code] = false
@@ -703,12 +759,30 @@ while true do
     if pressed[keys.up] or pressed[keys.w] then
       local nposX = posX + dirX * moveSpeed
       local nposY = posY + dirY * moveSpeed
-      -- [[
+      --[[
       local dist = math.min((castRay(math.floor(w * 0.5))),
         (castRay(math.floor(w * COLL_FAR_LEFT))),
         (castRay(math.floor(w * COLL_FAR_RIGHT))))
       if dist > 0.8 then
         posX, posY = nposX, nposY end--]]
+      -- [[
+      local oldX, oldY = posX, posY
+      if world[math.floor(oldY)][math.floor(nposX)] == 0 then
+        posX = nposX
+      end
+      if world[math.floor(nposY)][math.floor(nposX)] == 0 then
+        posY = nposY
+      end
+      --]]
+    end
+    if pressed[keys.z] then
+      if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
+        nextShot = os.epoch("utc") + weapons[WEAPON][2]
+        ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
+        sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
+          dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
+        generateHUD()
+      end
     end
     if pressed[keys.down] or pressed[keys.s] then
       local nposX = posX - dirX * moveSpeed
@@ -773,13 +847,12 @@ while true do
       end
     end
 
-    local exit
     -- update projectiles
     for i=1, #sprites, 1 do
       if sprites[i] and sprites[i][3] == 512 then
         tickProjectile(i, moveSpeed*1.5)
       elseif sprites[i] and sprites[i][3] == 0 then -- hidden projectile
-        tickProjectile(i, moveSpeed*1.5)
+        tickProjectile(i, moveSpeed*2)
       end
     end
 
@@ -787,6 +860,19 @@ while true do
     for i=1, #sprites, 1 do
       if texids[sprites[i][3]] == "enemy" then
         tickEnemy(i, moveSpeed)
+      end
+    end
+
+    -- tick items
+    for i=1, #sprites, 1 do
+      if sprites[i] and items[texids[sprites[i][3]]] then
+        local s = sprites[i]
+        local sx, sy = math.floor(s[1]), math.floor(s[2])
+        local px, py = math.floor(posX), math.floor(posY)
+        if px == sx and py == sy then
+          items[texids[s[3]]]()
+          table.remove(sprites, i)
+        end
       end
     end
 
