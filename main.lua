@@ -760,16 +760,21 @@ while true do
   
   if os.epoch("utc") - lastUpdate >= updateTarget - 5 then
     lastUpdate = os.epoch("utc")
+    -- bang bang shoot shoot bullet bullet gun
+    if pressed[keys.z] then
+      if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
+        nextShot = os.epoch("utc") + weapons[WEAPON][2]
+        ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
+        sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
+          dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
+        generateHUD()
+      end
+    end
+
+    -- forward/backward movement
     if pressed[keys.up] or pressed[keys.w] then
       local nposX = posX + dirX * moveSpeed
       local nposY = posY + dirY * moveSpeed
-      --[[
-      local dist = math.min((castRay(math.floor(w * 0.5))),
-        (castRay(math.floor(w * COLL_FAR_LEFT))),
-        (castRay(math.floor(w * COLL_FAR_RIGHT))))
-      if dist > 0.8 then
-        posX, posY = nposX, nposY end--]]
-      -- [[
       local oldX, oldY = posX, posY
       local offX, offY = 0.3, 0.3
       if math.abs(dirX) ~= dirX then offX = -0.3 end
@@ -789,26 +794,78 @@ while true do
       end
       --]]
     end
-    if pressed[keys.z] then
-      if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
-        nextShot = os.epoch("utc") + weapons[WEAPON][2]
-        ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
-        sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
-          dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
-        generateHUD()
-      end
-    end
     if pressed[keys.down] or pressed[keys.s] then
       local nposX = posX - dirX * moveSpeed
       local nposY = posY - dirY * moveSpeed
-      -- [[
-      local dist = math.min((castRay(math.floor(w * 0.5), true, true)),
-        (castRay(math.floor(w * COLL_FAR_LEFT), true, true)),
-        (castRay(math.floor(w * COLL_FAR_RIGHT), true, true)))
-      if dist > 0.8 then
-        posX, posY = nposX, nposY end--]]
+      local oldX, oldY = posX, posY
+      local offX, offY = -0.3, -0.3
+      if math.abs(dirX) ~= dirX then offX = 0.3 end
+      if math.abs(dirY) ~= dirY then offY = 0.3 end
+      local r_oY = math.floor(oldY+offY)
+      local r_oX = math.floor(oldX+offX)
+      local r_nY = math.floor(nposY+offY)
+      local r_nX = math.floor(nposX+offX)
+      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+        posX = nposX
+      end
+      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+        posY = nposY
+      end
+      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+        posX = nposX
+      end
     end
-    if pressed[keys.right] or pressed[keys.d] then
+    -- strafing
+    if pressed[keys.a] then
+      local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
+      local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
+      local nposX = posX - tmpDirX * moveSpeed
+      local nposY = posY - tmpDirY * moveSpeed
+      local oldX, oldY = posX, posY
+      local offX, offY = -0.3, -0.3
+      if math.abs(tmpDirX) ~= tmpDirX then offX = 0.3 end
+      if math.abs(tmpDirY) ~= tmpDirY then offY = 0.3 end
+      local r_oY = math.floor(oldY+offY)
+      local r_oX = math.floor(oldX+offX)
+      local r_nY = math.floor(nposY+offY)
+      local r_nX = math.floor(nposX+offX)
+      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+        posX = nposX
+      end
+      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+        posY = nposY
+      end
+      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+        posX = nposX
+      end
+    end
+
+    if pressed[keys.d] then
+      local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
+      local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
+      local nposX = posX + tmpDirX * moveSpeed
+      local nposY = posY + tmpDirY * moveSpeed
+      local oldX, oldY = posX, posY
+      local offX, offY = 0.3, 0.3
+      if math.abs(tmpDirX) ~= tmpDirX then offX = -0.3 end
+      if math.abs(tmpDirY) ~= tmpDirY then offY = -0.3 end
+      local r_oY = math.floor(oldY+offY)
+      local r_oX = math.floor(oldX+offX)
+      local r_nY = math.floor(nposY+offY)
+      local r_nX = math.floor(nposX+offX)
+      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+        posX = nposX
+      end
+      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+        posY = nposY
+      end
+      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+        posX = nposX
+      end
+    end
+
+    -- turning
+    if pressed[keys.right] then
       local oldDirX = dirX
       dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
       dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
@@ -816,7 +873,7 @@ while true do
       planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
       planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
     end
-    if pressed[keys.left] or pressed[keys.a] then
+    if pressed[keys.left] then
       local oldDirX = dirX
       dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
       dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
