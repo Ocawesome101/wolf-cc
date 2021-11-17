@@ -95,6 +95,7 @@ local COLL_FAR_LEFT = 0.4
 local COLL_FAR_RIGHT = 0.6
 local HUD_HEIGHT = 20
 local WEAPON = "PISTOL"
+local WORLD = "one"
 
 local playerHealth = 100
 
@@ -109,6 +110,10 @@ h = h - HUD_HEIGHT
 -- }
 local weapons = {
   PISTOL = {true, 0.5, }
+}
+
+local worlds = {
+  one = {map = "maps/map01.map"}--, next = "two"}
 }
 
 local function generateHUD()
@@ -263,7 +268,7 @@ term.setPaletteColor(5, 0xFF0000)
 
 loadTexture(512, "projectile.tex")
 
-loadWorld("maps/map01.map", world, doors)
+loadWorld(worlds[WORLD].map, world, doors)
 
 local lastTimerID
 
@@ -421,6 +426,45 @@ local function castRay(x, invertX, invertY, drawBuf)
   end
 
   return perpWallDist, hit, math.floor(mapX), math.floor(mapY)
+end
+
+local paletteCache = {}
+
+local function fadeToBlack()
+  for i=0, 255, 1 do
+    paletteCache[i] = {term.getPaletteColor(i)}
+  end
+
+  for i=0, 255, 1 do
+    local cnt = false
+    for i=0, 255, 1 do
+      local r, g, b = term.getPaletteColor(i)
+      cnt = cnt or (r ~= 0 or g ~= 0 or b ~= 0)
+      r = math.max(0, r - 0.01)
+      g = math.max(0, g - 0.01)
+      b = math.max(0, b - 0.01)
+      term.setPaletteColor(i, r, g, b)
+    end
+    if not cnt then break end
+    os.sleep(0.01)
+  end
+end
+
+local function fadeFromBlack()
+  for i=0, 255, 1 do
+    local cnt = false
+    for i=0, 255, 1 do
+      local tr, tg, tb = table.unpack(paletteCache[i])
+      local r, g, b = term.getPaletteColor(i)
+      cnt = cnt or (r < tr or g < tg or b < tb)
+      r = math.min(tr, r + 0.01)
+      g = math.min(tg, g + 0.01)
+      b = math.min(tb, b + 0.01)
+      term.setPaletteColor(i, r, g, b)
+    end
+    if not cnt then break end
+    os.sleep(0.01)
+  end
 end
 
 local function lerp(b, e, d, t)
@@ -636,6 +680,14 @@ while true do
       local dist, tile, mx, my = castRay(math.floor(w * 0.5))
       if dist < 2 and doors[my] and doors[my][mx] then
         interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
+      elseif dist < 2 and texids[tile] == "elevator" then
+        if not worlds[WORLD].next then break end
+        fadeToBlack()
+        WORLD = worlds[WORLD].nextw
+        world = {}
+        doors = {}
+        loadWorld(worlds[WORLD].map, world, doors)
+        fadeFromBlack()
       end
     end
 
