@@ -266,13 +266,13 @@ while true do
   elseif sig[1] == "key" then
     local key = sig[2]
     if key == keys.up then
-      scy = scy + 4
+      scy = scy + math.floor(tileSize * 0.75)
     elseif key == keys.down then
-      scy = scy - 4
+      scy = scy - math.floor(tileSize * 0.75)
     elseif key == keys.left then
-      scx = scx + 4
+      scx = scx + math.floor(tileSize * 0.75)
     elseif key == keys.right then
-      scx = scx - 4
+      scx = scx - math.floor(tileSize * 0.75)
     end
   end
 end

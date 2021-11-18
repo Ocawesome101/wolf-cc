@@ -197,7 +197,8 @@ local ammo = {
 }
 
 local worlds = {
-  one = {map = "maps/map01.map"}--, next = "two"}
+  one = {map = "maps/map01.map", next = "two"},
+  two = {map = "maps/map02.map"}
 }
 
 local function generateHUD()
@@ -267,6 +268,10 @@ items = {
   itemrocket = function()
     items.ammorocket()
     weapons.ROCKET[1] = true
+  end,
+  healthpack = function()
+    playerHealth = playerHealth + 50
+    generateHUD()
   end
 }
 
@@ -638,7 +643,7 @@ local function tickEnemy(sid, moveSpeed)
       spr[9] = np2
     end
     if os.epoch("utc") - spr[7] > spr[13] then
-      spr[13] = math.random(800, 2000)
+      spr[13] = math.random(800, 6000)
       spr[7] = os.epoch("utc")
       local distX, distY = spr[1] - posX, spr[2] - posY
       -- normalize that
@@ -945,12 +950,12 @@ while true do
         interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
       elseif dist < 2 and texids[tile] == "elevator" then
         if not worlds[WORLD].next then break end
-        fadeToBlack()
-        WORLD = worlds[WORLD].nextw
+        WORLD = worlds[WORLD].next
         world = {}
         doors = {}
+        texids = {}
         loadWorld(worlds[WORLD].map, world, doors)
-        fadeFromBlack()
+        posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
       end
     end
 
