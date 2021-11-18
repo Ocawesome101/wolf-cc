@@ -115,6 +115,13 @@ local numbers = {
     "\3\4\3\4",
     "\3\3\4\4"
   },
+  K = {
+    "\4\3\3\4",
+    "\4\3\4\3",
+    "\4\4\3\3",
+    "\4\3\4\3",
+    "\4\3\3\4"
+  },
   i = {
     "\3\4\3",
     "\3\3\3",
@@ -136,6 +143,7 @@ local numbers = {
     "\3\4\3",
     "\3\4\3"
   },
+  [" "] = {"","","","",""}
 }
 
 local weaponsText = {
@@ -171,6 +179,7 @@ local WEAPON = "PISTOL"
 local WORLD = "one"
 
 local playerHealth = 100
+local kills = 0
 
 h = h - HUD_HEIGHT
 
@@ -230,7 +239,7 @@ local function generateHUD()
   i=i+10
   n = math.max(0, ammo[weapons[WEAPON][6]])
   if n == math.huge then n = "inf" else n = tostring(n) end
-  n = "B" .. n
+  n = "B" .. n .. " K" .. tostring(kills)
   for c in n:gmatch(".") do
     local char = numbers[tonumber(c) or c]
     local offset = i * 10
@@ -646,21 +655,24 @@ local function tickEnemy(sid, moveSpeed)
       spr[13] = math.random(800, 6000)
       spr[7] = os.epoch("utc")
       local distX, distY = spr[1] - posX, spr[2] - posY
-      -- normalize that
-      local signX, signY = -1, -1
-      if math.abs(distX) ~= distX then signX = 1 end
-      if math.abs(distY) ~= distY then signY = 1 end
-      
-      if distX > distY then
-        distX, distY = signX, distY / distX * signY
-      else
-        distY, distX = signY, distX / distY * signX
+      -- don't attack if greater than a certain distance away
+      if math.abs(distX) <= 16 and math.abs(distY) <= 16 then
+        -- normalize that
+        local signX, signY = -1, -1
+        if math.abs(distX) ~= distX then signX = 1 end
+        if math.abs(distY) ~= distY then signY = 1 end
+        
+        if distX > distY then
+          distX, distY = signX, distY / distX * signY
+        else
+          distY, distX = signY, distX / distY * signX
+          end
+        local moveX, moveY = distX, distY
+        moveX = moveX + math.random(-0.8, 0.8) * signX
+        moveY = moveY + math.random(-0.8, 0.8) * signY
+        table.insert(sprites, {spr[1], spr[2], 512, moveX, moveY,
+          [7] = math.random(10, 30)})
       end
-      local moveX, moveY = distX, distY
-      moveX = moveX + math.random(-0.8, 0.8) * signX
-      moveY = moveY + math.random(-0.8, 0.8) * signY
-      table.insert(sprites, {spr[1], spr[2], 512, moveX, moveY,
-        [7] = math.random(10, 30)})
     end
   else
     spr[1] = lerp(spr[10], spr[8], spr[12], os.epoch("utc")-spr[6])
@@ -699,6 +711,7 @@ local function tickProjectile(sid, moveSpeed, stab)
           if stab[i].h <= 0 then
             table.remove(stab, i)
             table.remove(stab, sid)
+            kills = kills + 1
           end
         end
       end
@@ -954,6 +967,7 @@ while true do
         world = {}
         doors = {}
         texids = {}
+        kills = 0
         loadWorld(worlds[WORLD].map, world, doors)
         posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
       end
