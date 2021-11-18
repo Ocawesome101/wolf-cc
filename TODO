@@ -1,8 +1,14 @@
 Still to-do:
- - Replace all textures with custom ones, for copyright reasons
- - Add weapons
- - Add a HUD
- - Add a health system
- - Add enemies with some form of AI
- - Basically turn this into a game?
- - Refactor the world format to a single binary file (allowing for things such as:  more than 15 distinct textures, a flag for if a tile is a door rather than a separate tileset, etc) and write a map editor
+ - Improve the first map
+ - More maps
+ - More enemy types
+ - More weapons
+ - Improve enemy textures
+
+Done:
+ (756a0dbc) Replace all textures with custom ones, for copyright reasons
+ (c8a4cb22) Add weapons
+ (29475ef7) Add a HUD
+ (02dd60e2) Add a health system
+ (02dd60e2, improved in b6af308) Add enemies with some form of AI
+ (8e451eb6) Refactor the world format to a single binary file (allowing for things such as:  more than 15 distinct textures, a flag for if a tile is a door rather than a separate tileset, etc) and write a map editor
