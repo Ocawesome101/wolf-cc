@@ -619,8 +619,11 @@ local function tickEnemy(sid, moveSpeed)
   spr[9] = spr[9] or spr[2]
   spr[10] = spr[10] or spr[1]
   spr[11] = spr[11] or spr[2]
+  spr[12] = spr[12] or 200
+  spr[13] = spr[13] or 1000
   spr.h = spr.h or 100
-  if os.epoch("utc") - spr[6] > 200 then
+  if os.epoch("utc") - spr[6] > spr[12] then
+    spr[12] = math.random(200, 400)
     spr[6] = os.epoch("utc")
     local np1 = spr[1] + moveSpeed * spr[4]
     local np2 = spr[2] + moveSpeed * spr[5]
@@ -635,22 +638,23 @@ local function tickEnemy(sid, moveSpeed)
       spr[8] = np1
       spr[9] = np2
     end
-    if os.epoch("utc") - spr[7] > 1000 then
+    if os.epoch("utc") - spr[7] > spr[13] then
+      spr[13] = math.random(800, 2000)
       spr[7] = os.epoch("utc")
       --local a, b = (posX - spr[1])^2, (posY - spr[2])^2
       local a, b = spr[1] - posX, spr[2] - posY
       local angle = math.tan(a / b)
-      local dX, dY = 1 * math.sin(math.rad(angle)),
-        1 * math.cos(math.rad(angle))
+      local dX, dY = 1 * math.cos(math.rad(angle)),
+        1 * math.sin(math.rad(angle))
       local signX, signY = 1, 1
       if math.abs(dX) ~= dX then signX = -1 end
       if math.abs(dY) ~= dY then signY = -1 end
-      table.insert(sprites, {spr[1], spr[2], 512, -dX, -dY,
+      table.insert(sprites, {spr[1], spr[2], 512, -10*dY*moveSpeed, -10*dY*moveSpeed,
         [7] = math.random(10, 30)})
     end
   else
-    spr[1] = lerp(spr[10], spr[8], 200, os.epoch("utc")-spr[6])
-    spr[2] = lerp(spr[11], spr[9], 200, os.epoch("utc")-spr[6])
+    spr[1] = lerp(spr[10], spr[8], spr[12], os.epoch("utc")-spr[6])
+    spr[2] = lerp(spr[11], spr[9], spr[12], os.epoch("utc")-spr[6])
   end
   
   posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, odx, ody
