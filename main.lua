@@ -1,9 +1,23 @@
 -- raycaster --
 
-local craftos_colors = {}
-for i=0, 15, 1 do
-  craftos_colors[i] = {term.getPaletteColor(2^i)}
-end
+local craftos_colors = {
+  [0] = {0.94117647058824, 0.94117647058824, 0.94117647058824},
+  {0.9490196078431372, 0.6980392156862745, 0.2000000000000000},
+  {0.8980392156862745, 0.4980392156862745, 0.8470588235294118},
+  {0.6000000000000000, 0.6980392156862745, 0.9490196078431372},
+  {0.8705882352941177, 0.8705882352941177, 0.4235294117647059},
+  {0.4980392156862745, 0.8000000000000000, 0.0980392156862745},
+  {0.9490196078431372, 0.6980392156862745, 0.8000000000000000},
+  {0.2980392156862745, 0.2980392156862745, 0.2980392156862745},
+  {0.6000000000000000, 0.6000000000000000, 0.6000000000000000},
+  {0.2980392156862745, 0.6000000000000000, 0.6980392156862745},
+  {0.6980392156862745, 0.4000000000000000, 0.8980392156862745},
+  {0.2000000000000000, 0.4000000000000000, 0.8000000000000000},
+  {0.4980392156862745, 0.4000000000000000, 0.2980392156862745},
+  {0.3411764705882353, 0.6509803921568628, 0.3058823529411765},
+  {0.8000000000000000, 0.2980392156862745, 0.2980392156862745},
+  {0.0666666666666667, 0.0666666666666667, 0.0666666666666667}
+}
 
 --[=[ fade to black ]=]
 for n=0, 255, 1 do
@@ -86,6 +100,20 @@ local numbers = {
     "\3\4\4\4\3",
     "\3\3\3\4\3",
     "\4\4\4\3\3",
+  },
+  H = {
+    "\3\4\3\4\3",
+    "\4\3\4\3\4",
+    "\4\3\3\3\4",
+    "\3\4\3\4\3",
+    "\3\3\4\3\3"
+  },
+  B = {
+    "\3\3\3\3",
+    "\4\4\3\3",
+    "\4\3\4\3",
+    "\3\4\3\4",
+    "\3\3\4\4"
   },
   i = {
     "\3\4\3",
@@ -176,10 +204,10 @@ local function generateHUD()
   for i=0, HUD_HEIGHT, 1 do
     hud[i] = string.rep("\3", w)
   end
-  local n = tostring(math.max(0,playerHealth))
+  local n = "H"..tostring(math.max(0,playerHealth))
   local i = 0
   for c in n:gmatch(".") do
-    local char = numbers[tonumber(c)]
+    local char = numbers[tonumber(c)or c]
     local offset = i * 10
     for n=1,5,1 do
       local row = char[n]:gsub("(.)","%1%1")
@@ -201,6 +229,7 @@ local function generateHUD()
   i=i+10
   n = math.max(0, ammo[weapons[WEAPON][6]])
   if n == math.huge then n = "inf" else n = tostring(n) end
+  n = "B" .. n
   for c in n:gmatch(".") do
     local char = numbers[tonumber(c) or c]
     local offset = i * 10
@@ -371,6 +400,7 @@ term.setPaletteColor(3, 0x003366) -- HUD color
 term.setPaletteColor(4, 0xFFFFFF)
 term.setPaletteColor(5, 0xFF0000)
 
+loadTexture(0, "bullet.tex")
 loadTexture(512, "projectile.tex")
 
 loadWorld(worlds[WORLD].map, world, doors)
@@ -609,13 +639,13 @@ local function tickEnemy(sid, moveSpeed)
       spr[7] = os.epoch("utc")
       --local a, b = (posX - spr[1])^2, (posY - spr[2])^2
       local a, b = spr[1] - posX, spr[2] - posY
-      local angle = math.tan(math.abs(a) / math.abs(b))
-      local dX, dY = 2 * math.sin(math.rad(angle)),
-        2 * math.cos(math.rad(angle))
+      local angle = math.tan(a / b)
+      local dX, dY = 1 * math.sin(math.rad(angle)),
+        1 * math.cos(math.rad(angle))
       local signX, signY = 1, 1
       if math.abs(dX) ~= dX then signX = -1 end
       if math.abs(dY) ~= dY then signY = -1 end
-      table.insert(sprites, {spr[1], spr[2], 512, dX, dY,
+      table.insert(sprites, {spr[1], spr[2], 512, -dX, -dY,
         [7] = math.random(10, 30)})
     end
   else
@@ -693,43 +723,41 @@ while true do
 
   for i=1, #spriteOrder, 1 do
     local s = sprites[spriteOrder[i]]
-    if s[3] ~= 0 then
-      local spriteX = s[1] - posX
-      local spriteY = s[2] - posY
-  
-      local invDet = 1 / (planeX * dirY - dirX * planeY)
-  
-      local transformX = invDet * (dirY * spriteX - dirX * spriteY)
-      local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+    local spriteX = s[1] - posX
+    local spriteY = s[2] - posY
 
-      local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
-    
-      local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
+    local invDet = 1 / (planeX * dirY - dirX * planeY)
+
+    local transformX = invDet * (dirY * spriteX - dirX * spriteY)
+    local transformY = invDet * (-planeY * spriteX + planeX * spriteY)
+
+    local spriteScreenX = math.floor((w / 2) * (1 + transformX / transformY))
   
-      local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
-      local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
-    
-      local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
-      local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
-      local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
-    
-      local dof = h / 2 + spriteHeight / 2
-      local sof = (-spriteWidth / 2 + spriteScreenX)
-      local twdsw = texWidth / spriteWidth
-      for stripe = math.floor(drawStartX), drawEndX, 1 do
-        local texX = math.floor((stripe - sof) * twdsw) % 64
+    local spriteHeight = math.abs(math.floor(h / transformY * 1.1))
+
+    local drawStartY = math.max(0, -spriteHeight / 2 + h / 2)
+    local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
   
-        if transformY > 0 and stripe > 0 and stripe < w
-            and transformY < zBuf[stripe] then
-          for y = math.ceil(drawStartY), drawEndY, 1 do
-            local d = y - dof
-            local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-            local texidx = texWidth * texY + texX
-            local color = textures[s[3]][texidx] or 0
-            if color ~= 0 then
-              drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
-                string.char(color) .. drawBuf[y]:sub(stripe+2)
-            end
+    local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
+    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+    local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
+  
+    local dof = h / 2 + spriteHeight / 2
+    local sof = (-spriteWidth / 2 + spriteScreenX)
+    local twdsw = texWidth / spriteWidth
+    for stripe = math.floor(drawStartX), drawEndX, 1 do
+      local texX = math.floor((stripe - sof) * twdsw) % 64
+
+      if transformY > 0 and stripe > 0 and stripe < w
+          and transformY < zBuf[stripe] then
+        for y = math.ceil(drawStartY), drawEndY, 1 do
+          local d = y - dof
+          local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
+          local texidx = texWidth * texY + texX
+          local color = textures[s[3]][texidx] or 0
+          if color ~= 0 then
+            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
+              string.char(color) .. drawBuf[y]:sub(stripe+2)
           end
         end
       end
@@ -992,8 +1020,8 @@ term.setGraphicsMode(0)
 for i=0, 15, 1 do
   term.setPaletteColor(2^i, table.unpack(craftos_colors[i]))
 end
-term.clear()
-term.setCursorPos(1,1)
+--term.clear()
+--term.setCursorPos(1,1)
 if playerHealth <= 0 then
   printError("You Died!")
 end

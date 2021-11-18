@@ -3,8 +3,10 @@ A simple raycasting engine for CraftOS-PC's graphics mode.  Turning into a bit o
 
 Controls:
   W/S/Up/Down: move forwards/backwards
-  A/D/Left/Right: turn left/right
+  A/D: strafe left/right
+  Left/Right: turn left/right
   Space: open doors
+  either Alt: shoot
 
 Tiles are loaded as a map from `world.txt`.  The map is flipped (I'm not yet sure exactly how) due to how it's loaded.  Doors are determined by the `doors.txt` file, where each `1` is a door.
 
