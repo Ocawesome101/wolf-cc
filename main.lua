@@ -608,7 +608,6 @@ local function lerp(b, e, d, t)
 end
 
 local function tickEnemy(sid, moveSpeed)
--- [[
   local spr = sprites[sid]
   local opx, opy, oPx, oPy, odx, ody = posX, posY, planeX, planeY, dirX, dirY
   spr[4] = spr[4] or 1
@@ -641,15 +640,21 @@ local function tickEnemy(sid, moveSpeed)
     if os.epoch("utc") - spr[7] > spr[13] then
       spr[13] = math.random(800, 2000)
       spr[7] = os.epoch("utc")
-      --local a, b = (posX - spr[1])^2, (posY - spr[2])^2
-      local a, b = spr[1] - posX, spr[2] - posY
-      local angle = math.tan(a / b)
-      local dX, dY = 1 * math.cos(math.rad(angle)),
-        1 * math.sin(math.rad(angle))
-      local signX, signY = 1, 1
-      if math.abs(dX) ~= dX then signX = -1 end
-      if math.abs(dY) ~= dY then signY = -1 end
-      table.insert(sprites, {spr[1], spr[2], 512, -10*dY*moveSpeed, -10*dY*moveSpeed,
+      local distX, distY = spr[1] - posX, spr[2] - posY
+      -- normalize that
+      local signX, signY = -1, -1
+      if math.abs(distX) ~= distX then signX = 1 end
+      if math.abs(distY) ~= distY then signY = 1 end
+      
+      if distX > distY then
+        distX, distY = signX, distY / distX * signY
+      else
+        distY, distX = signY, distX / distY * signX
+      end
+      local moveX, moveY = distX, distY
+      moveX = moveX + math.random(-0.8, 0.8) * signX
+      moveY = moveY + math.random(-0.8, 0.8) * signY
+      table.insert(sprites, {spr[1], spr[2], 512, moveX, moveY,
         [7] = math.random(10, 30)})
     end
   else
@@ -658,7 +663,6 @@ local function tickEnemy(sid, moveSpeed)
   end
   
   posX, posY, planeX, planeY, dirX, dirY = opx, opy, oPx, oPy, odx, ody
---]]
 end
 
 local function doorIsOpen(x, y)
