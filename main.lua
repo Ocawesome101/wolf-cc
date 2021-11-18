@@ -5,7 +5,7 @@ for i=0, 15, 1 do
   craftos_colors[i] = {term.getPaletteColor(2^i)}
 end
 
---[[ fade to black ]=]
+--[=[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
   for i=0, 15, 1 do
@@ -168,24 +168,6 @@ local ammo = {
   [3] = 0
 }
 
-local items
-items = {
-  ammobasic = function()
-    ammo[2] = ammo[2] + 100
-  end,
-  ammorocket = function()
-    ammo[3] = ammo[3] + 3
-  end,
-  itemminigun = function()
-    items.ammobasic()
-    weapons.MINIGUN[1] = true
-  end,
-  itemrocket = function()
-    items.ammorocket()
-    weapons.ROCKET[1] = true
-  end
-}
-
 local worlds = {
   one = {map = "maps/map01.map"}--, next = "two"}
 }
@@ -231,9 +213,33 @@ local function generateHUD()
     end
     i=i+1
   end
+  local o=math.floor(w/2)
+  for i=0, HUD_HEIGHT, 1 do
+    hud[i]=hud[i]:sub(0,o).."\4"..hud[i]:sub(o+1)
+  end
   term.drawPixels(0, h+1, hud)
 end
 generateHUD()
+
+local items
+items = {
+  ammobasic = function()
+    ammo[2] = ammo[2] + 100
+    generateHUD()
+  end,
+  ammorocket = function()
+    ammo[3] = ammo[3] + 3
+    generateHUD()
+  end,
+  itemminigun = function()
+    items.ammobasic()
+    weapons.MINIGUN[1] = true
+  end,
+  itemrocket = function()
+    items.ammorocket()
+    weapons.ROCKET[1] = true
+  end
+}
 
 local textures = {[0] = {4}}
 local texids = {}
@@ -304,6 +310,7 @@ end
 -- 3 bytes: RGB value
 -- then raw texture data
 local lastSetPal = 5
+local totalSetColors = 5
 loadTexture = function(id, file)
   textures[id] = {}
   local tex = textures[id]
@@ -315,6 +322,7 @@ loadTexture = function(id, file)
   local eq = 0
   while r < palLen do
     r = r + 4
+    totalSetColors = totalSetColors + 1
     local colID = handle:read(1):byte()
     local rgb = string.unpack("<I3", handle:read(3))
     for i=0, lastSetPal, 1 do
@@ -322,6 +330,8 @@ loadTexture = function(id, file)
       mr, mg, mb = mr * 255, mg * 255, mb * 255
       local r, g, b = bit32.band(rgb, 0xff0000), bit32.band(rgb, 0x00ff00),
         bit32.band(rgb, 0x0000ff)
+      r = bit32.rshift(r, 16)
+      g = bit32.rshift(g, 8)
       if math.floor(r/16) == math.floor(mr/16) and
          math.floor(b/16) == math.floor(mb/16) and
          math.floor(g/16) == math.floor(mg/16) then
@@ -331,7 +341,7 @@ loadTexture = function(id, file)
     end
     if not palConv[colID] then
       lastSetPal = lastSetPal + 1
-      assert(lastSetPal < 256, "too many texture colors!")
+      assert(lastSetPal < 256, "too many texture colors! ("..totalSetColors.." in total)")
       term.setPaletteColor(lastSetPal, rgb)
       palConv[colID] = lastSetPal
     end
@@ -597,11 +607,16 @@ local function tickEnemy(sid, moveSpeed)
     end
     if os.epoch("utc") - spr[7] > 1000 then
       spr[7] = os.epoch("utc")
-      local a, b = posX - spr[1], posY - spr[2]
-      local angle = math.atan(b / a)
-      local dX, dY = 2 * math.sin(math.rad(angle)) / 2,
-        2 * math.cos(math.rad(angle)) / 2
-      table.insert(sprites, {spr[1], spr[2], 512, dX*a/math.abs(a), dY*b/math.abs(b), [7] = math.random(10, 30)})
+      --local a, b = (posX - spr[1])^2, (posY - spr[2])^2
+      local a, b = spr[1] - posX, spr[2] - posY
+      local angle = math.tan(math.abs(a) / math.abs(b))
+      local dX, dY = 2 * math.sin(math.rad(angle)),
+        2 * math.cos(math.rad(angle))
+      local signX, signY = 1, 1
+      if math.abs(dX) ~= dX then signX = -1 end
+      if math.abs(dY) ~= dY then signY = -1 end
+      table.insert(sprites, {spr[1], spr[2], 512, dX, dY,
+        [7] = math.random(10, 30)})
     end
   else
     spr[1] = lerp(spr[10], spr[8], 200, os.epoch("utc")-spr[6])
@@ -761,7 +776,7 @@ while true do
   if os.epoch("utc") - lastUpdate >= updateTarget - 5 then
     lastUpdate = os.epoch("utc")
     -- bang bang shoot shoot bullet bullet gun
-    if pressed[keys.leftCtrl] or pressed[keys.rightCtrl] then
+    if pressed[keys.leftAlt] or pressed[keys.rightAlt] then
       if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
         nextShot = os.epoch("utc") + weapons[WEAPON][2]
         ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
