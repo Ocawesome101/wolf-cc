@@ -1029,12 +1029,17 @@ while true do
 end
 
 -- fade to black
+local fadeTo = (playerHealth > 0 and 0 or 1)
 for i=0, 255, 1 do
   local cnt = false
   for i=0, 255, 1 do
     local r, g, b = term.getPaletteColor(i)
-    cnt = cnt or (r ~= 0 or g ~= 0 or b ~= 0)
-    r = math.max(0, r - 0.01)
+    cnt = cnt or (r ~= fadeTo or g ~= 0 or b ~= 0)
+    if r < fadeTo then
+      r = math.min(fadeTo, r + 0.01)
+    else
+      r = math.max(0, r - 0.01)
+    end
     g = math.max(0, g - 0.01)
     b = math.max(0, b - 0.01)
     term.setPaletteColor(i, r, g, b)
@@ -1047,8 +1052,9 @@ term.setGraphicsMode(0)
 for i=0, 15, 1 do
   term.setPaletteColor(2^i, table.unpack(craftos_colors[i]))
 end
---term.clear()
---term.setCursorPos(1,1)
+
+term.clear()
+term.setCursorPos(1,1)
 if playerHealth <= 0 then
   printError("You Died!")
 end
