@@ -143,7 +143,14 @@ local numbers = {
     "\3\4\3",
     "\3\4\3"
   },
-  [" "] = {"","","","",""}
+  [" "] = {"","","","",""},
+  ["/"] = {
+    "\3\3\3\3\4",
+    "\3\3\3\4\3",
+    "\3\3\4\3\3",
+    "\3\4\3\3\3",
+    "\4\3\3\3\3",
+  }
 }
 
 local weaponsText = {
@@ -180,6 +187,7 @@ local WORLD = "one"
 
 local playerHealth = 100
 local kills = 0
+local enemies = 0
 
 h = h - HUD_HEIGHT
 
@@ -187,14 +195,14 @@ h = h - HUD_HEIGHT
 -- collected (true/false)
 -- fire rate (delay between each shot in milliseconds)
 -- projectile type (1=fireball, 0=bullet)
--- projectile speed (0.5 .. 1.5)
+-- projectile speed (0.5 .. 1.5) - if 0, projectils fire instantly
 -- maximum projectile damage (1..100)
 -- ammo type
 -- }
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
-  PISTOL = {true, 1000, 0, 1.2, 10, 1},
-  MINIGUN = {false, 50, 0, 0.8, 2, 2},
+  PISTOL = {true, 1000, 0, 0, 10, 1},
+  MINIGUN = {false, 50, 0, 0, 2, 2},
   ROCKET = {false, 2000, 1, 0.5, 40, 3}
 }
 
@@ -239,7 +247,7 @@ local function generateHUD()
   i=i+10
   n = math.max(0, ammo[weapons[WEAPON][6]])
   if n == math.huge then n = "inf" else n = tostring(n) end
-  n = "B" .. n .. " K" .. tostring(kills)
+  n = "B" .. n .. " K" .. tostring(kills) .. "/" .. tostring(enemies)
   for c in n:gmatch(".") do
     local char = numbers[tonumber(c) or c]
     local offset = i * 10
@@ -251,10 +259,6 @@ local function generateHUD()
       hud[n*2] = hud[n*2]:sub(0, 5+offset)..row..hud[n*2]:sub(15+offset)
     end
     i=i+1
-  end
-  local o=math.floor(w/2)
-  for i=0, HUD_HEIGHT, 1 do
-    hud[i]=hud[i]:sub(0,o).."\4"..hud[i]:sub(o+1)
   end
   term.drawPixels(0, h+1, hud)
 end
@@ -338,9 +342,10 @@ local function loadWorld(file, w, d)
       d[n][cn] = {0, texids[value] == "door" and 0.5 or 0}
     end
     if sprite then
-      sprites[#sprites+1] = {cn + 0.5, n + 0.5, bit32.band(byte, 0x3F)}
+      if texids[value] == "enemy" then enemies = enemies + 1 end
+      sprites[#sprites+1] = {cn + 0.5, n + 0.5, value}
     else
-      w[n][cn] = bit32.band(byte, 0x3F)
+      w[n][cn] = value
     end
     cn = cn + 1
   end
@@ -418,6 +423,7 @@ loadTexture(0, "bullet.tex")
 loadTexture(512, "projectile.tex")
 
 loadWorld(worlds[WORLD].map, world, doors)
+generateHUD()
 
 local lastTimerID
 
@@ -712,6 +718,7 @@ local function tickProjectile(sid, moveSpeed, stab)
             table.remove(stab, i)
             table.remove(stab, sid)
             kills = kills + 1
+            generateHUD()
           end
         end
       end
@@ -790,6 +797,7 @@ while true do
     end
   end
   term.drawPixels(0, 0, drawBuf)
+  term.setPixel(math.floor(w/2),math.floor(h/2), 4)
  
   oldTime = time
   time = os.epoch("utc")
@@ -835,8 +843,21 @@ while true do
         nextShot = os.epoch("utc") + weapons[WEAPON][2]
         ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
         sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
-          dirX*weapons[WEAPON][4], dirY*weapons[WEAPON][4], true}
+          dirX*math.max(0.5,weapons[WEAPON][4]),
+          dirY*math.max(0.5,weapons[WEAPON][4]), true,
+          instant = weapons[WEAPON][4] == 0}
         generateHUD()
+        -- bad hack to make some bullets instant
+        while true do
+          local done = false
+          for i=1, #sprites, 1 do
+            if sprites[i] and sprites[i].instant then
+              tickProjectile(i, moveSpeed)
+              done = true
+            end
+          end
+          if not done then break end
+        end
       end
     end
 
@@ -968,6 +989,7 @@ while true do
         doors = {}
         texids = {}
         kills = 0
+        enemies = 0
         loadWorld(worlds[WORLD].map, world, doors)
         posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
       end
