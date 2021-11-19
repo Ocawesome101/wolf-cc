@@ -235,7 +235,10 @@ local ammo = {
 local worlds = {
   one = {map = "maps/map1.map", next = "two",
         text = "Map 1: The Awakening\n\nGrab some guns and get out!"},
-  two = {map = "maps/map02.map", text = "Map 2: The Preparation\n\nShoot all the robots!"}
+  two = {map = "maps/map02.map", next = "three",
+        text = "Map 2: The Preparation\n\nShoot all the robots!"},
+  three = {map = "maps/map03.map",
+        text = "Map 3: The Slaughtering\n\nPrepare yourself for robot carnage."}
 }
 
 local function generateHUD()
