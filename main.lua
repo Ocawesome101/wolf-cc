@@ -220,8 +220,8 @@ h = h - HUD_HEIGHT
 -- }
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
-  PISTOL = {true, 500, 0, 0, 10, 1},
-  MINIGUN = {false, 50, 0, 0, 2, 2},
+  PISTOL = {true, 500, 0, 0, 20, 1},
+  MINIGUN = {false, 50, 0, 0, 10, 2},
   ROCKET = {false, 2000, 1, 0.5, 100, 3}
 }
 
