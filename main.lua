@@ -19,6 +19,24 @@ local craftos_colors = {
   {0.0666666666666667, 0.0666666666666667, 0.0666666666666667}
 }
 
+term.clear()
+term.setCursorPos(1,1)
+textutils.slowPrint([[Welcome to WOLF-CC.
+
+Your objective is to disable the robots and escape the fortress.
+
+Use WASD to move, and the left and right arrows to look around.
+
+Once you obtain more weapons, you can use 2 and 3 to switch to them.
+
+Use either the left or right ALT keys to shoot.
+
+Press any key to start.
+
+]], 20)
+
+os.pullEvent("char")
+
 --[=[ fade to black ]=]
 for n=0, 255, 1 do
   local cnt = false
@@ -214,8 +232,9 @@ local ammo = {
 }
 
 local worlds = {
-  one = {map = "maps/map1.map", next = "two"},
-  two = {map = "maps/map02.map"}
+  one = {map = "maps/map1.map", next = "two",
+        text = "Map 1: The Awakening\n\nGrab some guns and get out!"},
+  two = {map = "maps/map02.map", text = "Map 2: The Preparation\n\nShoot all the robots!"}
 }
 
 local function generateHUD()
@@ -351,6 +370,15 @@ local function loadWorld(file, w, d)
   end
 end
 
+local function worldIntro(text)
+  term.setGraphicsMode(0)
+  term.clear()
+  term.setCursorPos(1,1)
+  textutils.slowPrint(text, 15)
+  sleep(3)
+  term.setGraphicsMode(2)
+end
+
 -- textures use a custom format:
 -- 1 byte: length of palette section
 -- for each palette entry:
@@ -421,7 +449,9 @@ term.setPaletteColor(5, 0xFF0000)
 
 loadTexture(0, "bullet.tex")
 loadTexture(512, "projectile.tex")
+loadTexture(513, "enemy-broken.tex")
 
+worldIntro(worlds[WORLD].text)
 loadWorld(worlds[WORLD].map, world, doors)
 generateHUD()
 
@@ -714,9 +744,9 @@ local function tickProjectile(sid, moveSpeed, stab)
         local sx, sy = math.floor(stab[i][1]), math.floor(stab[i][2])
         if ax == sx and ay == sy and texids[stab[i][3]] == "enemy" then
           stab[i].h = stab[i].h - spr[7]
+          table.remove(stab, sid)
           if stab[i].h <= 0 then
-            table.remove(stab, i)
-            table.remove(stab, sid)
+            stab[i][3] = 513
             kills = kills + 1
             generateHUD()
           end
@@ -988,8 +1018,10 @@ while true do
         world = {}
         doors = {}
         texids = {}
+        pressed = {}
         kills = 0
         enemies = 0
+        worldIntro(worlds[WORLD].text)
         loadWorld(worlds[WORLD].map, world, doors)
         posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
       end
