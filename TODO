@@ -4,6 +4,7 @@ Still to-do:
  - More enemy types
  - More weapons
  - Improve enemy textures
+ - Possibly refactor into a set of libraries with separate game and controls and physics and rendering logic, allowing the same maps and other assets to be used in a 2D top-down game, for instance
 
 Done:
  (756a0dbc) Replace all textures with custom ones, for copyright reasons

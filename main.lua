@@ -194,7 +194,7 @@ h = h - HUD_HEIGHT
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
   PISTOL = {true, 1000, 0, 1.2, 10, 1},
-  MINIGUN = {false, 100, 0, 0.8, 3, 2},
+  MINIGUN = {false, 50, 0, 0.8, 2, 2},
   ROCKET = {false, 2000, 1, 0.5, 40, 3}
 }
 
@@ -206,7 +206,7 @@ local ammo = {
 }
 
 local worlds = {
-  one = {map = "maps/map01.map", next = "two"},
+  one = {map = "maps/map1.map", next = "two"},
   two = {map = "maps/map02.map"}
 }
 
