@@ -33,8 +33,9 @@ Use either the left or right ALT keys to shoot.
 
 Press any key to start.
 
-]], 20)
+]], 40)
 
+term.setCursorBlink(true)
 os.pullEvent("char")
 
 --[=[ fade to black ]=]
@@ -219,9 +220,9 @@ h = h - HUD_HEIGHT
 -- }
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
-  PISTOL = {true, 1000, 0, 0, 10, 1},
+  PISTOL = {true, 500, 0, 0, 10, 1},
   MINIGUN = {false, 50, 0, 0, 2, 2},
-  ROCKET = {false, 2000, 1, 0.5, 40, 3}
+  ROCKET = {false, 2000, 1, 0.5, 100, 3}
 }
 
 -- ammo counts
@@ -729,7 +730,8 @@ local function tickProjectile(sid, moveSpeed, stab)
   spr[5] = spr[5] or 0
   spr[1] = spr[1] + moveSpeed * spr[4]
   spr[2] = spr[2] + moveSpeed * spr[5]
-  spr[7] = spr[7] or weapons[WEAPON][5] or 30
+  local dmg = weapons[WEAPON][5] or 30
+  spr[7] = spr[7] or math.random(dmg - math.min(dmg-1, 20), dmg)
   local ax, ay = math.floor(spr[1]), math.floor(spr[2])
   if ax == math.floor(posX) and ay == math.floor(posY) and not spr[6] then
     playerHealth = playerHealth - spr[7]
@@ -1021,6 +1023,12 @@ while true do
         pressed = {}
         kills = 0
         enemies = 0
+        if lastTimerID then
+          repeat
+            local _, id = os.pullEvent("timer")
+          until id == lastTimerID
+          lastTimerID = nil
+        end
         worldIntro(worlds[WORLD].text)
         loadWorld(worlds[WORLD].map, world, doors)
         posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
