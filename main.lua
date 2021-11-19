@@ -33,7 +33,7 @@ Use either the left or right ALT keys to shoot.
 
 Press any key to start.
 
-]], 40)
+]], 100)
 
 term.setCursorBlink(true)
 os.pullEvent("char")
@@ -311,6 +311,30 @@ items = {
   end
 }
 
+local imagery = {pistol = {}}
+
+local function drawFire(dbuf)
+  local yoff = 0
+  if WEAPON ~= "PISTOL" then
+    yoff = 16
+  end
+  local w2 = math.floor(w/2)
+  for _,line in ipairs(imagery.gunfire) do
+    local y=h-_-yoff
+    dbuf[y]=dbuf[y]:sub(0,w2-line[1]) .. line[2] ..
+      dbuf[y]:sub(w2-line[1]+#line[2]+1)
+  end
+end
+
+local function drawWeapon(dbuf)
+  local w2 = math.floor(w/2)
+  for _, line in ipairs(imagery[WEAPON:lower()]) do
+    local y=h-_
+    dbuf[y]=dbuf[y]:sub(0,w2-line[1]) .. line[2] ..
+      dbuf[y]:sub(w2-line[1]+#line[2]+1)
+  end
+end
+
 local textures = {[0] = {4}}
 local texids = {}
 local texWidth, texHeight = 64, 64
@@ -378,7 +402,7 @@ local function worldIntro(text)
   term.setGraphicsMode(0)
   term.clear()
   term.setCursorPos(1,1)
-  textutils.slowPrint(text, 15)
+  textutils.slowPrint(text, 80)
   sleep(3)
   term.setGraphicsMode(2)
 end
@@ -454,6 +478,35 @@ term.setPaletteColor(5, 0xFF0000)
 loadTexture(0, "bullet.tex")
 loadTexture(512, "projectile.tex")
 loadTexture(513, "enemy-broken.tex")
+loadTexture(514, "minigun01.tex")
+loadTexture(515, "rocket.tex")
+loadTexture(516, "gunfire.tex")
+
+-- set up imagery
+do
+  for k,tex in pairs {[514]="minigun",[515]="rocket",[516]="gunfire"} do
+    imagery[tex] = {}
+    for y = texHeight - 1, 0, -1 do
+      local lo, ln = 0, ""
+      for x = 0, texWidth - 1, 1 do
+        local idx = texWidth * y + x
+        if textures[k][idx] == 0 then
+          if #ln == 0 then
+            lo = x*2
+          else
+            break
+          end
+        elseif textures[k][idx] then
+          ln=ln..string.char(textures[k][idx])..string.char(textures[k][idx])
+        end
+      end
+      if #ln > 0 then
+        table.insert(imagery[tex], {texWidth-lo,ln})
+        table.insert(imagery[tex], {texWidth-lo,ln})
+      end
+    end
+  end
+end
 
 worldIntro(worlds[WORLD].text)
 loadWorld(worlds[WORLD].map, world, doors)
@@ -765,7 +818,7 @@ end
 local ftavg = 0
 local lastUpdate = os.epoch("utc")
 local updateTarget = 50
-local nextShot = 0
+local lastShot, nextShot = 0, 0
 while true do
   local moveSpeed, rotSpeed
 
@@ -831,6 +884,10 @@ while true do
       end
     end
   end
+  if os.epoch("utc") - lastShot <= 100 then
+    drawFire(drawBuf)
+  end
+  drawWeapon(drawBuf)
   term.drawPixels(0, 0, drawBuf)
   term.setPixel(math.floor(w/2),math.floor(h/2), 4)
  
@@ -876,6 +933,7 @@ while true do
     if pressed[keys.leftAlt] or pressed[keys.rightAlt] then
       if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
         nextShot = os.epoch("utc") + weapons[WEAPON][2]
+        lastShot = os.epoch("utc")
         ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
         sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
           dirX*math.max(0.5,weapons[WEAPON][4]),
