@@ -860,7 +860,7 @@ while true do
     local drawEndY = math.min(h - 1, spriteHeight / 2 + h / 2)
   
     local spriteWidth = spriteHeight --math.abs(math.floor(h / transformY))
-    local drawStartX = math.max(0, -spriteWidth / 2 + spriteScreenX)
+    local drawStartX = math.max(0, -spriteHeight / 2 + spriteScreenX)
     local drawEndX = math.min(w - 1, spriteWidth / 2 + spriteScreenX)
   
     local dof = h / 2 + spriteHeight / 2
@@ -874,7 +874,7 @@ while true do
         for y = math.ceil(drawStartY), drawEndY, 1 do
           local d = y - dof
           local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-          local texidx = texWidth * texY + texX
+          local texidx = texWidth * texY
           local color = textures[s[3]][texidx] or 0
           if color ~= 0 then
             drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
