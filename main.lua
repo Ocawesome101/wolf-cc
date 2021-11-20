@@ -874,7 +874,7 @@ while true do
         for y = math.ceil(drawStartY), drawEndY, 1 do
           local d = y - dof
           local texY = math.floor(((d * texHeight) / spriteHeight)) % 64
-          local texidx = texWidth * texY
+          local texidx = texWidth * texY + texX
           local color = textures[s[3]][texidx] or 0
           if color ~= 0 then
             drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
