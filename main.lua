@@ -220,9 +220,9 @@ h = h - HUD_HEIGHT
 -- }
 local weapons = {
   sequence = {"PISTOL", "MINIGUN", "ROCKET"},
-  PISTOL = {true, 500, 0, 0, 20, 1},
-  MINIGUN = {false, 50, 0, 0, 10, 2},
-  ROCKET = {false, 2000, 1, 0.5, 100, 3}
+  PISTOL = {true, 500, 0, 0, 40, 1},
+  MINIGUN = {false, 50, 0, 0, 20, 2},
+  ROCKET = {false, 2000, 1, 0.5, 200, 3}
 }
 
 -- ammo counts
@@ -326,9 +326,16 @@ local function drawFire(dbuf)
   end
 end
 
+local isShooting
 local function drawWeapon(dbuf)
   local w2 = math.floor(w/2)
-  for _, line in ipairs(imagery[WEAPON:lower()]) do
+  local img = imagery[WEAPON:lower()]
+  if WEAPON == "MINIGUN" then
+    if isShooting and (os.epoch("utc") % 200 > 100) then
+      img = imagery.minigun2
+    end
+  end
+  for _, line in ipairs(img) do
     local y=h-_
     dbuf[y]=dbuf[y]:sub(0,w2-line[1]) .. line[2] ..
       dbuf[y]:sub(w2-line[1]+#line[2]+1)
@@ -481,10 +488,12 @@ loadTexture(513, "enemy-broken.tex")
 loadTexture(514, "minigun01.tex")
 loadTexture(515, "rocket.tex")
 loadTexture(516, "gunfire.tex")
+loadTexture(517, "minigun02.tex")
 
 -- set up imagery
 do
-  for k,tex in pairs {[514]="minigun",[515]="rocket",[516]="gunfire"} do
+  for k,tex in pairs {[514]="minigun",[515]="rocket",[516]="gunfire",
+      [517]="minigun2"} do
     imagery[tex] = {}
     for y = texHeight - 1, 0, -1 do
       local lo, ln = 0, ""
@@ -802,11 +811,13 @@ local function tickProjectile(sid, moveSpeed, stab)
         local sx, sy = math.floor(stab[i][1]), math.floor(stab[i][2])
         if ax == sx and ay == sy and texids[stab[i][3]] == "enemy" then
           stab[i].h = stab[i].h - spr[7]
-          table.remove(stab, sid)
+          -- if the projectile killed an enemy, it'll keep going
           if stab[i].h <= 0 then
             stab[i][3] = 513
             kills = kills + 1
             generateHUD()
+          else
+            table.remove(stab, sid)
           end
         end
       end
@@ -816,8 +827,6 @@ end
 
 -- main loop
 local ftavg = 0
-local lastUpdate = os.epoch("utc")
-local updateTarget = 50
 local lastShot, nextShot = 0, 0
 while true do
   local moveSpeed, rotSpeed
@@ -885,7 +894,10 @@ while true do
     end
   end
   if os.epoch("utc") - lastShot <= 100 then
+    isShooting = true
     drawFire(drawBuf)
+  else
+    isShooting = false
   end
   drawWeapon(drawBuf)
   term.drawPixels(0, 0, drawBuf)
@@ -896,8 +908,8 @@ while true do
   local frametime = (time - oldTime) / 1000
   ftavg = (ftavg + frametime) / (ftavg == 0 and 1 or 2)
   local fps = 1 / ftavg
-  moveSpeed = math.max(updateTarget/1000, frametime) * 7
-  rotSpeed = math.max(updateTarget/1000, frametime) * 3
+  moveSpeed = frametime * 7
+  rotSpeed = frametime * 3
 
   -- input handling
   if not lastTimerID then
@@ -927,228 +939,225 @@ while true do
     pressed[code] = false
   end
   
-  if os.epoch("utc") - lastUpdate >= updateTarget - 5 then
-    lastUpdate = os.epoch("utc")
-    -- bang bang shoot shoot bullet bullet gun
-    if pressed[keys.leftAlt] or pressed[keys.rightAlt] then
-      if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
-        nextShot = os.epoch("utc") + weapons[WEAPON][2]
-        lastShot = os.epoch("utc")
-        ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
-        sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
-          dirX*math.max(0.5,weapons[WEAPON][4]),
-          dirY*math.max(0.5,weapons[WEAPON][4]), true,
-          instant = weapons[WEAPON][4] == 0}
-        generateHUD()
-        -- bad hack to make some bullets instant
-        while true do
-          local done = false
-          for i=1, #sprites, 1 do
-            if sprites[i] and sprites[i].instant then
-              tickProjectile(i, moveSpeed)
-              done = true
-            end
+  -- bang bang shoot shoot bullet bullet gun
+  if pressed[keys.leftAlt] or pressed[keys.rightAlt] then
+    if os.epoch("utc") >= nextShot and ammo[weapons[WEAPON][6]] > 0 then
+      nextShot = os.epoch("utc") + weapons[WEAPON][2]
+      lastShot = os.epoch("utc")
+      ammo[weapons[WEAPON][6]] = ammo[weapons[WEAPON][6]] - 1
+      sprites[#sprites+1] = {posX, posY, weapons[WEAPON][3]*512,
+        dirX*math.max(0.5,weapons[WEAPON][4]),
+        dirY*math.max(0.5,weapons[WEAPON][4]), true,
+        instant = weapons[WEAPON][4] == 0}
+      generateHUD()
+      -- bad hack to make some bullets instant
+      while true do
+        local done = false
+        for i=1, #sprites, 1 do
+          if sprites[i] and sprites[i].instant then
+            tickProjectile(i, moveSpeed)
+            done = true
           end
-          if not done then break end
         end
+        if not done then break end
       end
     end
-
-    -- reduce movement speed slightly when strafing
-    if (pressed[keys.up] or pressed[keys.w] or pressed[keys.s] or
-       pressed[keys.down]) and (pressed[keys.a] or pressed[keys.d]) then
-      moveSpeed = moveSpeed * 0.75
-    end
-
-    -- forward/backward movement
-    if pressed[keys.up] or pressed[keys.w] then
-      local nposX = posX + dirX * moveSpeed
-      local nposY = posY + dirY * moveSpeed
-      local oldX, oldY = posX, posY
-      local offX, offY = 0.3, 0.3
-      if math.abs(dirX) ~= dirX then offX = -0.3 end
-      if math.abs(dirY) ~= dirY then offY = -0.3 end
-      local r_oY = math.floor(oldY+offY)
-      local r_oX = math.floor(oldX+offX)
-      local r_nY = math.floor(nposY+offY)
-      local r_nX = math.floor(nposX+offX)
-      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
-        posX = nposX
-      end
-      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
-        posY = nposY
-      end
-      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
-        posX = nposX
-      end
-    end
-
-    if pressed[keys.down] or pressed[keys.s] then
-      local nposX = posX - dirX * moveSpeed
-      local nposY = posY - dirY * moveSpeed
-      local oldX, oldY = posX, posY
-      local offX, offY = -0.3, -0.3
-      if math.abs(dirX) ~= dirX then offX = 0.3 end
-      if math.abs(dirY) ~= dirY then offY = 0.3 end
-      local r_oY = math.floor(oldY+offY)
-      local r_oX = math.floor(oldX+offX)
-      local r_nY = math.floor(nposY+offY)
-      local r_nX = math.floor(nposX+offX)
-      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
-        posX = nposX
-      end
-      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
-        posY = nposY
-      end
-      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
-        posX = nposX
-      end
-    end
-
-    -- strafing
-    if pressed[keys.a] then
-      local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
-      local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
-      local nposX = posX - tmpDirX * moveSpeed
-      local nposY = posY - tmpDirY * moveSpeed
-      local oldX, oldY = posX, posY
-      local offX, offY = -0.3, -0.3
-      if math.abs(tmpDirX) ~= tmpDirX then offX = 0.3 end
-      if math.abs(tmpDirY) ~= tmpDirY then offY = 0.3 end
-      local r_oY = math.floor(oldY+offY)
-      local r_oX = math.floor(oldX+offX)
-      local r_nY = math.floor(nposY+offY)
-      local r_nX = math.floor(nposX+offX)
-      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
-        posX = nposX
-      end
-      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
-        posY = nposY
-      end
-      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
-        posX = nposX
-      end
-    end
-
-    if pressed[keys.d] then
-      local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
-      local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
-      local nposX = posX + tmpDirX * moveSpeed
-      local nposY = posY + tmpDirY * moveSpeed
-      local oldX, oldY = posX, posY
-      local offX, offY = 0.3, 0.3
-      if math.abs(tmpDirX) ~= tmpDirX then offX = -0.3 end
-      if math.abs(tmpDirY) ~= tmpDirY then offY = -0.3 end
-      local r_oY = math.floor(oldY+offY)
-      local r_oX = math.floor(oldX+offX)
-      local r_nY = math.floor(nposY+offY)
-      local r_nX = math.floor(nposX+offX)
-      if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
-        posX = nposX
-      end
-      if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
-        posY = nposY
-      end
-      if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
-        posX = nposX
-      end
-    end
-
-    -- turning
-    if pressed[keys.right] then
-      local oldDirX = dirX
-      dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
-      dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
-      local oldPlaneX = planeX
-      planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
-      planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
-    end
-    if pressed[keys.left] then
-      local oldDirX = dirX
-      dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
-      dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
-      local oldPlaneX = planeX
-      planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
-      planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
-    end
-    if pressed[keys.space] then
-      local dist, tile, mx, my = castRay(math.floor(w * 0.5))
-      if dist < 2 and doors[my] and doors[my][mx] then
-        interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
-      elseif dist < 2 and texids[tile] == "elevator" then
-        if not worlds[WORLD].next then break end
-        WORLD = worlds[WORLD].next
-        world = {}
-        doors = {}
-        texids = {}
-        pressed = {}
-        kills = 0
-        enemies = 0
-        if lastTimerID then
-          repeat
-            local _, id = os.pullEvent("timer")
-          until id == lastTimerID
-          lastTimerID = nil
-        end
-        worldIntro(worlds[WORLD].text)
-        loadWorld(worlds[WORLD].map, world, doors)
-        posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
-      end
-    end
-
-    -- update doors
-    for i=#interpDoors, 1, -1 do
-      local y, x = table.unpack(interpDoors[i])
-      if os.epoch("utc") - interpDoors[i][3] >= 5000 then
-        if doors[y][x][1] <= 0 then
-          if doors[y][x][3] and doors[y][x][2] > 0 then
-            doors[y][x][2] = doors[y][x][2] - 0.1 * moveSpeed
-          else
-            doors[y][x][1] = 0
-            table.remove(interpDoors, i)
-          end
-        else
-          doors[y][x][1] = doors[y][x][1] - 0.1 * moveSpeed
-        end
-      elseif doors[y][x][2] < 0.5 then
-        doors[y][x][3] = true
-        doors[y][x][2] = doors[y][x][2] + 0.1 * moveSpeed
-      elseif doors[y][x][1] < 1 then
-        doors[y][x][1] = doors[y][x][1] + 0.1 * moveSpeed
-      end
-    end
-
-    -- update projectiles
-    for i=1, #sprites, 1 do
-      if sprites[i] and sprites[i][3] == 512 then
-        tickProjectile(i, moveSpeed*1.5)
-      elseif sprites[i] and sprites[i][3] == 0 then -- hidden projectile
-        tickProjectile(i, moveSpeed*2)
-      end
-    end
-
-    -- update enemies
-    for i=1, #sprites, 1 do
-      if texids[sprites[i][3]] == "enemy" then
-        tickEnemy(i, moveSpeed)
-      end
-    end
-
-    -- tick items
-    for i=1, #sprites, 1 do
-      if sprites[i] and items[texids[sprites[i][3]]] then
-        local s = sprites[i]
-        local sx, sy = math.floor(s[1]), math.floor(s[2])
-        local px, py = math.floor(posX), math.floor(posY)
-        if px == sx and py == sy then
-          items[texids[s[3]]]()
-          table.remove(sprites, i)
-        end
-      end
-    end
-
-    if playerHealth < 0 then break end
   end
+
+  -- reduce movement speed slightly when strafing
+  if (pressed[keys.up] or pressed[keys.w] or pressed[keys.s] or
+      pressed[keys.down]) and (pressed[keys.a] or pressed[keys.d]) then
+    moveSpeed = moveSpeed * 0.75
+  end
+
+  -- forward/backward movement
+  if pressed[keys.up] or pressed[keys.w] then
+    local nposX = posX + dirX * moveSpeed
+    local nposY = posY + dirY * moveSpeed
+    local oldX, oldY = posX, posY
+    local offX, offY = 0.3, 0.3
+    if math.abs(dirX) ~= dirX then offX = -0.3 end
+    if math.abs(dirY) ~= dirY then offY = -0.3 end
+    local r_oY = math.floor(oldY+offY)
+    local r_oX = math.floor(oldX+offX)
+    local r_nY = math.floor(nposY+offY)
+    local r_nX = math.floor(nposX+offX)
+    if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+      posX = nposX
+    end
+    if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+      posY = nposY
+    end
+    if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+      posX = nposX
+    end
+  end
+
+  if pressed[keys.down] or pressed[keys.s] then
+    local nposX = posX - dirX * moveSpeed
+    local nposY = posY - dirY * moveSpeed
+    local oldX, oldY = posX, posY
+    local offX, offY = -0.3, -0.3
+    if math.abs(dirX) ~= dirX then offX = 0.3 end
+    if math.abs(dirY) ~= dirY then offY = 0.3 end
+    local r_oY = math.floor(oldY+offY)
+    local r_oX = math.floor(oldX+offX)
+    local r_nY = math.floor(nposY+offY)
+    local r_nX = math.floor(nposX+offX)
+    if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+      posX = nposX
+    end
+    if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+      posY = nposY
+    end
+    if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+      posX = nposX
+    end
+  end
+
+  -- strafing
+  if pressed[keys.a] then
+    local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
+    local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
+    local nposX = posX - tmpDirX * moveSpeed
+    local nposY = posY - tmpDirY * moveSpeed
+    local oldX, oldY = posX, posY
+    local offX, offY = -0.3, -0.3
+    if math.abs(tmpDirX) ~= tmpDirX then offX = 0.3 end
+    if math.abs(tmpDirY) ~= tmpDirY then offY = 0.3 end
+    local r_oY = math.floor(oldY+offY)
+    local r_oX = math.floor(oldX+offX)
+    local r_nY = math.floor(nposY+offY)
+    local r_nX = math.floor(nposX+offX)
+    if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+      posX = nposX
+    end
+    if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+      posY = nposY
+    end
+    if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+      posX = nposX
+    end
+  end
+
+  if pressed[keys.d] then
+    local tmpDirX = planeX--dirX * math.cos(-90) - dirY * math.sin(-90)
+    local tmpDirY = planeY--dirY * math.sin(-90) + dirY * math.cos(-90)
+    local nposX = posX + tmpDirX * moveSpeed
+    local nposY = posY + tmpDirY * moveSpeed
+    local oldX, oldY = posX, posY
+    local offX, offY = 0.3, 0.3
+    if math.abs(tmpDirX) ~= tmpDirX then offX = -0.3 end
+    if math.abs(tmpDirY) ~= tmpDirY then offY = -0.3 end
+    local r_oY = math.floor(oldY+offY)
+    local r_oX = math.floor(oldX+offX)
+    local r_nY = math.floor(nposY+offY)
+    local r_nX = math.floor(nposX+offX)
+    if world[r_oY][r_nX] == 0 or doorIsOpen(r_nX, r_oY) then
+      posX = nposX
+    end
+    if world[r_nY][r_oX] == 0 or doorIsOpen(r_oX, r_nY) then
+      posY = nposY
+    end
+    if world[r_nY][r_nX] == 0 or doorIsOpen(r_nX, r_nY) then
+      posX = nposX
+    end
+  end
+
+  -- turning
+  if pressed[keys.right] then
+    local oldDirX = dirX
+    dirX = dirX * math.cos(-rotSpeed) - dirY * math.sin(-rotSpeed)
+    dirY = oldDirX * math.sin(-rotSpeed) + dirY * math.cos(-rotSpeed)
+    local oldPlaneX = planeX
+    planeX = planeX * math.cos(-rotSpeed) - planeY * math.sin(-rotSpeed)
+    planeY = oldPlaneX * math.sin(-rotSpeed) + planeY * math.cos(-rotSpeed)
+  end
+  if pressed[keys.left] then
+    local oldDirX = dirX
+    dirX = dirX * math.cos(rotSpeed) - dirY * math.sin(rotSpeed)
+    dirY = oldDirX * math.sin(rotSpeed) + dirY * math.cos(rotSpeed)
+    local oldPlaneX = planeX
+    planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
+    planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
+  end
+  if pressed[keys.space] then
+    local dist, tile, mx, my = castRay(math.floor(w * 0.5))
+    if dist < 2 and doors[my] and doors[my][mx] then
+      interpDoors[#interpDoors+1] = {my, mx, os.epoch("utc")}
+    elseif dist < 2 and texids[tile] == "elevator" then
+      if not worlds[WORLD].next then break end
+      WORLD = worlds[WORLD].next
+      world = {}
+      doors = {}
+      texids = {}
+      pressed = {}
+      kills = 0
+      enemies = 0
+      if lastTimerID then
+        repeat
+          local _, id = os.pullEvent("timer")
+        until id == lastTimerID
+        lastTimerID = nil
+      end
+      worldIntro(worlds[WORLD].text)
+      loadWorld(worlds[WORLD].map, world, doors)
+      posX, posY, dirX, dirY, planeX, planeY = 2, 2, 0, 1, 0.6, 0
+    end
+  end
+
+  -- update doors
+  for i=#interpDoors, 1, -1 do
+    local y, x = table.unpack(interpDoors[i])
+    if os.epoch("utc") - interpDoors[i][3] >= 5000 then
+      if doors[y][x][1] <= 0 then
+        if doors[y][x][3] and doors[y][x][2] > 0 then
+          doors[y][x][2] = doors[y][x][2] - 0.1 * moveSpeed
+        else
+          doors[y][x][1] = 0
+          table.remove(interpDoors, i)
+        end
+      else
+        doors[y][x][1] = doors[y][x][1] - 0.1 * moveSpeed
+      end
+    elseif doors[y][x][2] < 0.5 then
+      doors[y][x][3] = true
+      doors[y][x][2] = doors[y][x][2] + 0.1 * moveSpeed
+    elseif doors[y][x][1] < 1 then
+      doors[y][x][1] = doors[y][x][1] + 0.1 * moveSpeed
+    end
+  end
+
+  -- update projectiles
+  for i=1, #sprites, 1 do
+    if sprites[i] and sprites[i][3] == 512 then
+      tickProjectile(i, moveSpeed*1.5)
+    elseif sprites[i] and sprites[i][3] == 0 then -- hidden projectile
+      tickProjectile(i, moveSpeed*2)
+    end
+  end
+
+  -- update enemies
+  for i=1, #sprites, 1 do
+    if texids[sprites[i][3]] == "enemy" then
+      tickEnemy(i, moveSpeed)
+    end
+  end
+
+  -- tick items
+  for i=1, #sprites, 1 do
+    if sprites[i] and items[texids[sprites[i][3]]] then
+      local s = sprites[i]
+      local sx, sy = math.floor(s[1]), math.floor(s[2])
+      local px, py = math.floor(posX), math.floor(posY)
+      if px == sx and py == sy then
+        items[texids[s[3]]]()
+        table.remove(sprites, i)
+      end
+    end
+  end
+
+  if playerHealth < 0 then break end
 end
 
 -- fade to black
