@@ -1,6 +1,8 @@
 // WOLF-CC
 A simple raycasting engine for CraftOS-PC's graphics mode.  Turning into a bit of a Wolf3D clone.
 
+✨featured on the CraftOS-PC home page!✨
+
 Controls:
   W/S/Up/Down: move forwards/backwards
   A/D: strafe left/right
@@ -8,7 +10,7 @@ Controls:
   Space: open doors
   Left or Right Alt: shoot
 
-If input lag becomes an issue, lower your key repeat interval in your system settings.  Even at 25 repeats/s I sometimes experience issues when rendering lots of sprites.
+If input lag becomes an issue, lower the key repeat interval in your system settings.  Even at 25 repeats/sec I sometimes experience issues when rendering lots of sprites.  I recommend 5 or less for an optimal experience.
 
 Sprite rendering is NOT fast.
 
