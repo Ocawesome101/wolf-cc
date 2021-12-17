@@ -6,13 +6,13 @@ Controls:
   A/D: strafe left/right
   Left/Right: turn left/right
   Space: open doors
-  either Alt: shoot
+  Left or Right Alt: shoot
 
 If input lag becomes an issue, lower your key repeat interval in your system settings.  Even at 25 repeats/s I sometimes experience issues when rendering lots of sprites.
 
 Sprite rendering is NOT fast.
 
-Tiles are loaded as a map from `world.txt`.  The map is flipped (I'm not yet sure exactly how) due to how it's loaded.  Doors are determined by the `doors.txt` file, where each `1` is a door.
+Maps are loaded from files in the `maps/` directory.  These can be created and modified with the included map editor.  See `MAPS` below for details in the format.
 
 See `TODO` for future plans.
 
