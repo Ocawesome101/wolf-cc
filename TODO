@@ -1,12 +1,12 @@
 Still to-do:
- - Improve the first map
- - More maps
  - More enemy types
  - More weapons
  - Improve enemy textures
  - Possibly refactor into a set of libraries with separate game and controls and physics and rendering logic, allowing the same maps and other assets to be used in a 2D top-down game, for instance
 
 Done:
+ (8dd362e0 and 9cfa69e3) More maps
+ (07abb0f2) Improve the first map
  (756a0dbc) Replace all textures with custom ones, for copyright reasons
  (c8a4cb22) Add weapons
  (29475ef7) Add a HUD
