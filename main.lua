@@ -469,7 +469,7 @@ end
 
 local posX, posY = 3, 3
 local dirX, dirY = 0, 1
-local planeX, planeY = 0.6, 0
+local planeX, planeY = 0.8, 0
 
 local time, oldTime = 0, 0
 
