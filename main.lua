@@ -21,7 +21,10 @@ local craftos_colors = {
 
 term.clear()
 term.setCursorPos(1,1)
-textutils.slowPrint([[Welcome to WOLF-CC.
+
+local printer = textutils.slowPrint
+
+printer([[Welcome to WOLF-CC.
 
 Your objective is to disable the robots and escape the fortress.
 
@@ -409,7 +412,7 @@ local function worldIntro(text)
   term.setGraphicsMode(0)
   term.clear()
   term.setCursorPos(1,1)
-  textutils.slowPrint(text, 80)
+  printer(text, 80)
   sleep(3)
   term.setGraphicsMode(2)
 end
@@ -900,6 +903,7 @@ while true do
     isShooting = false
   end
   drawWeapon(drawBuf)
+
   term.drawPixels(0, 0, drawBuf)
   term.setPixel(math.floor(w/2),math.floor(h/2), 4)
  
