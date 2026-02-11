@@ -646,10 +646,10 @@ local function castRay(x, invertX, invertY, drawBuf)
     local tex = textures[hit] or {}
     if #tex < texWidth*texHeight-2 then
       for i=0, h, 1 do
-        drawBuf[i] = drawBuf[i] ..
+        drawBuf[i] = (drawBuf[i] ..
           (i >= drawStart and i <= drawEnd and string.char(color)
        or (i < drawStart and "\x02")
-       or "\x01")
+       or "\x01")):rep(1)
       end
     else
       local wallX
@@ -674,7 +674,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         elseif i < drawStart then
           color = "\x02"
         end
-        drawBuf[i] = drawBuf[i] .. color
+        drawBuf[i] = (drawBuf[i] .. color):rep(1) -- work around rope concatenation problems
       end
     end
   end
