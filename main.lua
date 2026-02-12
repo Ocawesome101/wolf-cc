@@ -22,7 +22,7 @@ local craftos_colors = {
 term.clear()
 term.setCursorPos(1,1)
 
-local printer = textutils.slowPrint
+local printer = function(a)print(a)end--textutils.slowPrint
 
 printer([[Welcome to WOLF-CC.
 
@@ -210,8 +210,6 @@ local WORLD = "one"
 local playerHealth = 100
 local kills = 0
 local enemies = 0
-
-h = h - HUD_HEIGHT
 
 -- weapons[NAME] = {
 -- collected (true/false)
@@ -646,10 +644,9 @@ local function castRay(x, invertX, invertY, drawBuf)
     local tex = textures[hit] or {}
     if #tex < texWidth*texHeight-2 then
       for i=0, h, 1 do
-        drawBuf[i] = (drawBuf[i] ..
-          (i >= drawStart and i <= drawEnd and string.char(color)
-       or (i < drawStart and "\x02")
-       or "\x01")):rep(1)
+        drawBuf[i][x] = (i >= drawStart and i <= drawEnd and string.char(color)
+          or (i < drawStart and "\x02")
+          or "\x01")
       end
     else
       local wallX
@@ -674,7 +671,7 @@ local function castRay(x, invertX, invertY, drawBuf)
         elseif i < drawStart then
           color = "\x02"
         end
-        drawBuf[i] = (drawBuf[i] .. color):rep(1) -- work around rope concatenation problems
+        drawBuf[i][x] = color
       end
     end
   end
@@ -831,14 +828,23 @@ end
 -- main loop
 local ftavg = 0
 local lastShot, nextShot = 0, 0
+
+local drawBuf = {}
+local zBuf = {}
+
+local function resize()
+  h = h - HUD_HEIGHT
+  for i=0, h do drawBuf[i] = {} end
+  generateHUD()
+end
+
+resize()
+
 while true do
   local moveSpeed, rotSpeed
 
-  local drawBuf = {}
-  local zBuf = {}
-  for i=0, h, 1 do drawBuf[i] = "" end
   for x = 0, w-1, 1 do
-    zBuf[x] = castRay(x, false, false, drawBuf)
+    zBuf[x] =  castRay(x, false, false, drawBuf)
   end
 
   local spriteOrder = {}
@@ -889,22 +895,28 @@ while true do
           local texidx = texWidth * texY + texX
           local color = textures[s[3]][texidx] or 0
           if color ~= 0 then
-            drawBuf[y] = drawBuf[y]:sub(0, stripe) ..
-              string.char(color) .. drawBuf[y]:sub(stripe+2)
+            drawBuf[y][stripe] = string.char(color)
           end
         end
       end
     end
   end
+
+  local rendered = {}
+
+  for i=0, h do
+    rendered[i] = table.concat(drawBuf[i])
+  end
+
   if os.epoch("utc") - lastShot <= 100 then
     isShooting = true
-    drawFire(drawBuf)
+    drawFire(rendered)
   else
     isShooting = false
   end
-  drawWeapon(drawBuf)
+  drawWeapon(rendered)
 
-  term.drawPixels(0, 0, drawBuf)
+  term.drawPixels(0, 0, rendered)
   term.setPixel(math.floor(w/2),math.floor(h/2), 4)
  
   oldTime = time
@@ -923,6 +935,9 @@ while true do
   if sig == "terminate" then break end
   if sig == "timer" and code == lastTimerID then
     lastTimerID = nil
+  elseif sig == "term_resize" then
+    w, h = term.getSize(2)
+    resize()
   elseif sig == "key" and not rep then
     pressed[code] = true
     if code == keys.one then
